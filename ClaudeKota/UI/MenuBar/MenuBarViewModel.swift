@@ -7,6 +7,8 @@ final class MenuBarViewModel {
     let notesManager: NotesManager
     let statusService: StatusService
     var isNotesOpen = false
+    private(set) var clockTick: Date = .now
+    private var clockTimer: Timer?
 
     init(appState: AppState, notesManager: NotesManager, statusService: StatusService) {
         self.appState = appState
@@ -48,10 +50,12 @@ final class MenuBarViewModel {
     }
 
     var resetTimeText: String {
-        MenuBarIconRenderer.formatResetTime(from: appState.sessionResetDate)
+        _ = clockTick
+        return MenuBarIconRenderer.formatResetTime(from: appState.sessionResetDate)
     }
 
     var lastUpdateText: String {
+        _ = clockTick
         guard let date = appState.lastUpdateDate else { return "--" }
         let seconds = Int(Date().timeIntervalSince(date))
         if seconds < 60 { return "Az once" }
@@ -80,6 +84,7 @@ final class MenuBarViewModel {
     }
 
     var timeElapsedFraction: Double {
+        _ = clockTick
         guard let resetDate = appState.sessionResetDate else { return 0 }
         let totalWindow = TimingConstants.sessionWindowDuration
         let remaining = resetDate.timeIntervalSince(Date())
@@ -97,5 +102,19 @@ final class MenuBarViewModel {
 
     func openStatusPage() {
         statusService.openStatusPage()
+    }
+
+    func startClockTick() {
+        guard clockTimer == nil else { return }
+        clockTimer = Timer.scheduledTimer(withTimeInterval: 30, repeats: true) { [weak self] _ in
+            Task { @MainActor [weak self] in
+                self?.clockTick = .now
+            }
+        }
+    }
+
+    func stopClockTick() {
+        clockTimer?.invalidate()
+        clockTimer = nil
     }
 }
