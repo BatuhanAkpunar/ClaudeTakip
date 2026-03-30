@@ -17,6 +17,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private lazy var notificationManager = NotificationManager(appState: appState, notesManager: notesManager)
     private lazy var autoSessionService = AutoSessionService(appState: appState, authManager: authManager, notesManager: notesManager)
     private lazy var iconRenderer = MenuBarIconRenderer()
+    private lazy var updateManager = UpdateManager()
     private var viewModel: MenuBarViewModel?
 
     // Timers & tasks
@@ -220,7 +221,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         pacingTask?.cancel()
         pacingTask = nil
         viewModel?.stopClockTick()
-        usageService.stopPolling()
+        usageService.shutdown()
         statusService.stopPolling()
         autoSessionService.stopMonitoring()
         if let globalMonitor {
