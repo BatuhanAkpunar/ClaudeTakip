@@ -31,7 +31,7 @@ struct SystemTogglesView: View {
                     get: { notesManager.settings.autoSession },
                     set: { newValue in notesManager.updateSettings { $0.autoSession = newValue } }
                 ),
-                tooltip: "Limit sifirlaninca yeni oturumu erkenden baslatir."
+                tooltip: "Limit sifirlaninca kisa bir mesaj gonderip siler, boylece yeni oturumu erkenden baslatir."
             )
 
             ThemeRow(darkMode: Binding(
