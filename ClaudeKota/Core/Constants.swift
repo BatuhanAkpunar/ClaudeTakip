@@ -26,6 +26,7 @@ enum TimingConstants {
 }
 
 enum PacingConstants {
+    static let comfortableThreshold: Double = 1.1
     static let balancedThreshold: Double = 1.5
     static let fastThreshold: Double = 2.5
     static let criticalRemainingThreshold: Double = 0.10
