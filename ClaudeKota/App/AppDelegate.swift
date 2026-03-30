@@ -6,6 +6,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private var statusItem: NSStatusItem?
     private var popover: NSPopover?
     private var globalMonitor: Any?
+    private var wakeObserver: Any?
 
     // Managers
     private let appState = AppState()
@@ -18,8 +19,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private lazy var iconRenderer = MenuBarIconRenderer()
     private var viewModel: MenuBarViewModel?
 
-    // UI update timer
+    // Timers & tasks
     private var iconUpdateTimer: Timer?
+    private var pacingTask: Task<Void, Never>?
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         setupStatusItem()
@@ -78,13 +80,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     private func updatePopoverContent() {
         if appState.isLoggedIn {
+            viewModel?.stopClockTick()
             let vm = MenuBarViewModel(
                 appState: appState,
                 notesManager: notesManager,
                 statusService: statusService
             )
             self.viewModel = vm
-            vm.startClockTick()
             let view = MenuBarView(
                 viewModel: vm,
                 onRefresh: { [weak self] in
@@ -139,7 +141,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     private func startPacingObservation() {
-        Task { @MainActor [weak self] in
+        pacingTask?.cancel()
+        pacingTask = Task { @MainActor [weak self] in
             var previousUsage = self?.appState.sessionUsage ?? 0
             while !Task.isCancelled {
                 try? await Task.sleep(for: .seconds(5))
@@ -175,6 +178,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         alert.buttons.first?.hasDestructiveAction = true
 
         if alert.runModal() == .alertFirstButtonReturn {
+            pacingTask?.cancel()
+            pacingTask = nil
             viewModel?.stopClockTick()
             usageService.stopPolling()
             statusService.stopPolling()
@@ -195,7 +200,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     // MARK: - Wake from Sleep
 
     private func setupWakeObserver() {
-        NSWorkspace.shared.notificationCenter.addObserver(
+        wakeObserver = NSWorkspace.shared.notificationCenter.addObserver(
             forName: NSWorkspace.didWakeNotification,
             object: nil,
             queue: .main
@@ -203,6 +208,28 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             Task { @MainActor [weak self] in
                 await self?.usageService.fetchUsage()
             }
+        }
+    }
+
+    // MARK: - Cleanup
+
+    func applicationWillTerminate(_ notification: Notification) {
+        iconUpdateTimer?.invalidate()
+        iconUpdateTimer = nil
+        iconRenderer.stopFlashAnimation()
+        pacingTask?.cancel()
+        pacingTask = nil
+        viewModel?.stopClockTick()
+        usageService.stopPolling()
+        statusService.stopPolling()
+        autoSessionService.stopMonitoring()
+        if let globalMonitor {
+            NSEvent.removeMonitor(globalMonitor)
+            self.globalMonitor = nil
+        }
+        if let wakeObserver {
+            NSWorkspace.shared.notificationCenter.removeObserver(wakeObserver)
+            self.wakeObserver = nil
         }
     }
 }
