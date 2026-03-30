@@ -52,3 +52,9 @@ targets:
       - path: ClaudeKotaTests
     dependencies:
       - target: ClaudeKota
+    settings:
+      base:
+        PRODUCT_NAME: ClaudeKotaTests
+        PRODUCT_MODULE_NAME: ClaudeKotaTests
+        PRODUCT_BUNDLE_IDENTIFIER: com.batuhanakpunar.ClaudeKotaTests
+        GENERATE_INFOPLIST_FILE: YES
