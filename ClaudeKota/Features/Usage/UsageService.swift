@@ -31,6 +31,7 @@ final class UsageService {
     func stopPolling() {
         pollingTimer?.invalidate()
         pollingTimer = nil
+        networkMonitor.cancel()
     }
 
     func manualRefresh() async {
