@@ -1,7 +1,7 @@
 import SwiftUI
 
 struct PopoverHeightKey: PreferenceKey {
-    nonisolated(unsafe) static var defaultValue: CGFloat = 520
+    static var defaultValue: CGFloat { 520 }
     static func reduce(value: inout CGFloat, nextValue: () -> CGFloat) {
         value = nextValue()
     }
