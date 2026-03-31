@@ -47,7 +47,7 @@ struct NotesPanelView: View {
                     .background(DT.Colors.cardBackground, in: RoundedRectangle(cornerRadius: DT.Radius.card))
                     .overlay(RoundedRectangle(cornerRadius: DT.Radius.card).strokeBorder(DT.Colors.cardBorder, lineWidth: 0.5))
 
-                TextField("Not icerigini yaz...", text: $newContent, axis: .vertical)
+                TextField("Not içeriğini yaz...", text: $newContent, axis: .vertical)
                     .textFieldStyle(.plain)
                     .font(.system(size: 11))
                     .lineLimit(2...4)
@@ -57,7 +57,7 @@ struct NotesPanelView: View {
 
                 if editingNoteId != nil {
                     HStack {
-                        Button("Vazgec") { clearEditing() }
+                        Button("Vazgeç") { clearEditing() }
                             .buttonStyle(.plain).font(DT.Typography.caption).foregroundStyle(.secondary)
                         Spacer()
                         Button("Kaydet") { saveEdit() }
