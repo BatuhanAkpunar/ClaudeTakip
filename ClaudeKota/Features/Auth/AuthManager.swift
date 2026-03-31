@@ -1,4 +1,5 @@
 import Foundation
+import WebKit
 
 @MainActor
 final class AuthManager {
@@ -10,7 +11,7 @@ final class AuthManager {
     }
 
     func checkExistingSession() async {
-        guard let sessionKey = try? keychain.retrieve(key: KeychainConstants.sessionKeyAccount),
+        guard let _ = try? keychain.retrieve(key: KeychainConstants.sessionKeyAccount),
               let orgId = try? keychain.retrieve(key: KeychainConstants.orgIdAccount) else {
             appState.isLoggedIn = false
             return
@@ -42,6 +43,15 @@ final class AuthManager {
         appState.paceStatus = .unknown
         appState.connectionStatus = .disconnected
         appState.previousUsage = nil
+        clearWebCookies()
+    }
+
+    private func clearWebCookies() {
+        let dataStore = WKWebsiteDataStore.default()
+        dataStore.fetchDataRecords(ofTypes: WKWebsiteDataStore.allWebsiteDataTypes()) { records in
+            let claudeRecords = records.filter { $0.displayName.contains("claude") }
+            dataStore.removeData(ofTypes: WKWebsiteDataStore.allWebsiteDataTypes(), for: claudeRecords) {}
+        }
     }
 
     func getSessionKey() -> String? {
