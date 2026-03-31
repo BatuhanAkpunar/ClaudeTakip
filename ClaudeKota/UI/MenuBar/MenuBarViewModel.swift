@@ -18,10 +18,10 @@ final class MenuBarViewModel {
 
     var statusText: String {
         switch appState.claudeSystemStatus {
-        case .operational: "Canli"
+        case .operational: "Canl\u{0131}"
         case .degraded: "Sorunlu"
         case .major: "Kesinti"
-        case .maintenance: "Bakim"
+        case .maintenance: "Bak\u{0131}m"
         }
     }
 
@@ -36,7 +36,7 @@ final class MenuBarViewModel {
     var connectionStatusText: String {
         switch appState.connectionStatus {
         case .connected: statusText
-        case .disconnected: "Baglanti yok"
+        case .disconnected: "Ba\u{011F}lant\u{0131} yok"
         case .error(let msg): msg
         }
     }
@@ -58,7 +58,7 @@ final class MenuBarViewModel {
         _ = clockTick
         guard let date = appState.lastUpdateDate else { return "--" }
         let seconds = Int(Date().timeIntervalSince(date))
-        if seconds < 60 { return "Az once" }
+        if seconds < 60 { return "Az \u{00F6}nce" }
         let minutes = seconds / 60
         return "Son \(minutes)dk"
     }
@@ -67,7 +67,7 @@ final class MenuBarViewModel {
         switch appState.paceStatus {
         case .comfortable: "Rahat"
         case .balanced: "Dengeli"
-        case .fast: "Hizli"
+        case .fast: "H\u{0131}zl\u{0131}"
         case .critical: "Kritik"
         case .unknown: "--"
         }

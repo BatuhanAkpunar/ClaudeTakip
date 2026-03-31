@@ -40,7 +40,7 @@ struct NotesPanelView: View {
             Spacer()
 
             VStack(spacing: 6) {
-                TextField("Baslik...", text: $newTitle)
+                TextField("Başlık...", text: $newTitle)
                     .textFieldStyle(.plain)
                     .font(.system(size: 11, weight: .semibold))
                     .padding(8)

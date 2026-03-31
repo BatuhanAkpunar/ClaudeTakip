@@ -13,15 +13,16 @@ struct WeeklyBarView: View {
                 ZStack(alignment: .leading) {
                     RoundedRectangle(cornerRadius: 2).fill(DT.Colors.trackBackground)
                     RoundedRectangle(cornerRadius: 2)
-                        .fill(LinearGradient(colors: [DT.Colors.weeklyBlue.opacity(0.8), DT.Colors.weeklyBlue], startPoint: .leading, endPoint: .trailing))
+                        .fill(LinearGradient(colors: [DT.Colors.weeklyPurple.opacity(0.8), DT.Colors.weeklyPurple], startPoint: .leading, endPoint: .trailing))
                         .frame(width: geo.size.width * usage)
+                        .shadow(color: DT.Colors.glowPurple, radius: 3)
                         .animation(DT.Animation.progressFill, value: usage)
                 }
             }
             .frame(height: 3)
             Text("\(Int(usage * 100))%")
                 .font(.system(size: 11, weight: .semibold, design: .monospaced))
-                .foregroundStyle(DT.Colors.weeklyBlue)
+                .foregroundStyle(DT.Colors.weeklyPurple)
                 .frame(width: 28, alignment: .trailing)
         }
     }

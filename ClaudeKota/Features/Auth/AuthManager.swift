@@ -83,9 +83,9 @@ enum AuthError: Error, LocalizedError {
 
     var errorDescription: String? {
         switch self {
-        case .organizationFetchFailed: "Organizasyon bilgisi alinamadi"
-        case .noOrganizationFound: "Hesapta organizasyon bulunamadi"
-        case .sessionExpired: "Oturum suresi doldu, tekrar giris yap"
+        case .organizationFetchFailed: "Organizasyon bilgisi alınamadı"
+        case .noOrganizationFound: "Hesapta organizasyon bulunamadı"
+        case .sessionExpired: "Oturum süresi doldu, tekrar giriş yap"
         }
     }
 }

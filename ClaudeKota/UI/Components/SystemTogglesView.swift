@@ -4,16 +4,18 @@ import ServiceManagement
 struct SystemTogglesView: View {
     @Bindable var notesManager: NotesManager
 
+    @State private var showAutoSessionTip = false
+
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
-            Text("SISTEM")
+            Text("SİSTEM")
                 .font(DT.Typography.sectionTitle)
                 .foregroundStyle(.quaternary)
                 .kerning(0.8)
                 .padding(.bottom, 8)
                 .padding(.leading, 2)
 
-            ToggleRow(label: "Acilista baslat", isOn: Binding(
+            ToggleRow(label: "Açılışta başlat", isOn: Binding(
                 get: { notesManager.settings.launchAtLogin },
                 set: { newValue in
                     notesManager.updateSettings { $0.launchAtLogin = newValue }
@@ -31,7 +33,9 @@ struct SystemTogglesView: View {
                     get: { notesManager.settings.autoSession },
                     set: { newValue in notesManager.updateSettings { $0.autoSession = newValue } }
                 ),
-                tooltip: "Limit sifirlaninca kisa bir mesaj gonderip siler, boylece yeni oturumu erkenden baslatir."
+                showTip: $showAutoSessionTip,
+                tipTitle: "Otomatik oturum",
+                tipBody: "Limit sıfırlanınca kısa bir mesaj gönderip hemen siler. Bu, yeni 5 saatlik pencereyi erkenden başlatır.\n\nÖrnek: Saat 10:00'da başladıysan normalde 15:00'da sıfırlanır. Ama o sırada mesaj atmazsan sonraki pencere 17:00'a kayar. Bu özellik açıksa otomatik başlatılır."
             )
 
             ThemeRow(darkMode: Binding(
@@ -45,20 +49,43 @@ struct SystemTogglesView: View {
 struct ToggleRow: View {
     let label: String
     @Binding var isOn: Bool
-    var tooltip: String? = nil
+    @Binding var showTip: Bool
+    var tipTitle: String = ""
+    var tipBody: String = ""
     @State private var isHovered = false
+
+    init(label: String, isOn: Binding<Bool>, showTip: Binding<Bool> = .constant(false), tipTitle: String = "", tipBody: String = "") {
+        self.label = label
+        self._isOn = isOn
+        self._showTip = showTip
+        self.tipTitle = tipTitle
+        self.tipBody = tipBody
+    }
 
     var body: some View {
         HStack {
             HStack(spacing: 6) {
                 Text(label).font(DT.Typography.label).foregroundStyle(.secondary)
-                if let tooltip {
-                    Text("?")
-                        .font(.system(size: 9, weight: .semibold))
-                        .foregroundStyle(.tertiary)
-                        .frame(width: 14, height: 14)
-                        .overlay(Circle().strokeBorder(.quaternary, lineWidth: 1))
-                        .help(tooltip)
+                if !tipBody.isEmpty {
+                    Button(action: { showTip.toggle() }) {
+                        Text("?")
+                            .font(.system(size: 9, weight: .semibold))
+                            .foregroundStyle(.tertiary)
+                            .frame(width: 14, height: 14)
+                            .overlay(Circle().strokeBorder(.quaternary, lineWidth: 1))
+                    }
+                    .buttonStyle(.plain)
+                    .popover(isPresented: $showTip, arrowEdge: .trailing) {
+                        VStack(alignment: .leading, spacing: 4) {
+                            Text(tipTitle)
+                                .font(DT.Typography.tooltipTitle)
+                            Text(tipBody)
+                                .font(DT.Typography.tooltipBody)
+                                .foregroundStyle(.secondary)
+                        }
+                        .padding(10)
+                        .frame(maxWidth: 220)
+                    }
                 }
             }
             Spacer()

@@ -54,7 +54,7 @@ final class MenuBarIconRenderer {
         // Track
         let trackPath = NSBezierPath(roundedRect: barRect, xRadius: barHeight / 2, yRadius: barHeight / 2)
         let isDark = NSApp.effectiveAppearance.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua
-        (isDark ? NSColor(white: 0.2, alpha: 1) : NSColor(white: 0.82, alpha: 1)).setFill()
+        (isDark ? NSColor(white: 0.1, alpha: 1) : NSColor(white: 0.816, alpha: 1)).setFill()
         trackPath.fill()
 
         // Fill (flash animation when <10%)
@@ -72,7 +72,7 @@ final class MenuBarIconRenderer {
         // Percentage text inside bar
         let percentText = "\(Int(remaining * 100))%"
         let percentAttrs: [NSAttributedString.Key: Any] = [
-            .font: NSFont.monospacedSystemFont(ofSize: 9, weight: .bold),
+            .font: NSFont.monospacedSystemFont(ofSize: 10, weight: .bold),
             .foregroundColor: NSColor.white
         ]
         let percentSize = (percentText as NSString).size(withAttributes: percentAttrs)
@@ -83,7 +83,7 @@ final class MenuBarIconRenderer {
         // 3. Reset time
         let timeX = barX + barWidth + spacing
         let timeAttrs: [NSAttributedString.Key: Any] = [
-            .font: NSFont.monospacedSystemFont(ofSize: 10, weight: .regular),
+            .font: NSFont.monospacedSystemFont(ofSize: 11, weight: .medium),
             .foregroundColor: isDark ? NSColor(white: 0.45, alpha: 1) : NSColor(white: 0.6, alpha: 1)
         ]
         let timeSize = (resetTimeText as NSString).size(withAttributes: timeAttrs)
@@ -96,9 +96,9 @@ final class MenuBarIconRenderer {
 
     private func statusColor(for remaining: Double) -> NSColor {
         switch remaining {
-        case 0.50...: return NSColor(red: 0.29, green: 0.87, blue: 0.50, alpha: 1)
-        case 0.25..<0.50: return NSColor(red: 0.96, green: 0.62, blue: 0.04, alpha: 1)
-        default: return NSColor(red: 0.94, green: 0.27, blue: 0.27, alpha: 1)
+        case 0.50...: return NSColor(red: 0.0, green: 0.94, blue: 1.0, alpha: 1)    // neon cyan #00F0FF
+        case 0.25..<0.50: return NSColor(red: 1.0, green: 0.72, blue: 0.0, alpha: 1) // neon amber #FFB800
+        default: return NSColor(red: 1.0, green: 0.18, blue: 0.47, alpha: 1)          // neon magenta #FF2D78
         }
     }
 

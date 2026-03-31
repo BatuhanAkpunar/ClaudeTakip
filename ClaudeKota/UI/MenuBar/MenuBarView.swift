@@ -1,7 +1,7 @@
 import SwiftUI
 
 struct PopoverHeightKey: PreferenceKey {
-    static var defaultValue: CGFloat { 520 }
+    static var defaultValue: CGFloat { 540 }
     static func reduce(value: inout CGFloat, nextValue: () -> CGFloat) {
         value = nextValue()
     }
@@ -13,6 +13,7 @@ struct MenuBarView: View {
     let onSignOut: () -> Void
     let onQuit: () -> Void
     var onHeightChange: ((CGFloat) -> Void)?
+    @State private var isRefreshing = false
 
     var body: some View {
         HStack(spacing: 0) {
@@ -27,6 +28,7 @@ struct MenuBarView: View {
                     .transition(.move(edge: .trailing).combined(with: .opacity))
             }
         }
+        .background(.ultraThinMaterial)
         .animation(DT.Animation.notesSlide, value: viewModel.isNotesOpen)
         .background(GeometryReader { geo in
             Color.clear.preference(key: PopoverHeightKey.self, value: geo.size.height)
@@ -52,13 +54,13 @@ struct MenuBarView: View {
             .padding(.bottom, 18)
 
             HStack(spacing: DT.Spacing.itemGap) {
-                InfoCardView(value: viewModel.resetTimeText, label: "Sifirlama")
+                InfoCardView(value: viewModel.resetTimeText, label: "S\u{0131}f\u{0131}rlama")
                 InfoCardView(
                     value: viewModel.paceStatusText,
-                    label: "Hiz",
+                    label: "H\u{0131}z",
                     valueColor: viewModel.paceStatusColor
                 )
-                InfoCardView(value: viewModel.lastUpdateText, label: "Guncelleme")
+                InfoCardView(value: viewModel.lastUpdateText, label: "G\u{00FC}ncelleme")
             }
             .padding(.bottom, 12)
 
@@ -90,7 +92,7 @@ struct MenuBarView: View {
                     Circle()
                         .fill(viewModel.connectionDotColor)
                         .frame(width: DT.Size.statusDotSize, height: DT.Size.statusDotSize)
-                        .shadow(color: viewModel.connectionDotColor.opacity(0.4), radius: 3)
+                        .shadow(color: viewModel.connectionDotColor.opacity(0.6), radius: 4)
                     Text(viewModel.connectionStatusText)
                         .font(.system(size: 11))
                         .foregroundStyle(.secondary)
@@ -124,10 +126,19 @@ struct MenuBarView: View {
                 }
                 .buttonStyle(.plain)
 
-                Button(action: onRefresh) {
+                Button(action: {
+                    withAnimation(DT.Animation.refreshSpin) {
+                        isRefreshing = true
+                    }
+                    onRefresh()
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.6) {
+                        isRefreshing = false
+                    }
+                }) {
                     Image(systemName: "arrow.clockwise")
                         .font(.system(size: 12))
                         .foregroundStyle(.secondary)
+                        .rotationEffect(.degrees(isRefreshing ? 360 : 0))
                         .frame(width: DT.Size.iconButtonSize, height: DT.Size.iconButtonSize)
                 }
                 .buttonStyle(.plain)
@@ -137,7 +148,7 @@ struct MenuBarView: View {
 
     private var footer: some View {
         HStack {
-            Button("Hesaptan cik") { onSignOut() }
+            Button("Hesaptan \u{00E7}\u{0131}k") { onSignOut() }
                 .buttonStyle(FooterButtonStyle(isDestructive: true))
             Spacer()
             Button("Kapat") { onQuit() }
