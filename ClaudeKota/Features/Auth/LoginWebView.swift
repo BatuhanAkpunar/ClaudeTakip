@@ -10,6 +10,9 @@ struct LoginWebView: NSViewRepresentable {
         config.websiteDataStore = .default()
         let webView = WKWebView(frame: .zero, configuration: config)
         webView.navigationDelegate = context.coordinator
+        // Google OAuth, embedded browser'lari user-agent'tan tespit edip engelliyor.
+        // Safari user-agent kullanarak bunu atlat.
+        webView.customUserAgent = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.0 Safari/605.1.15"
         webView.load(URLRequest(url: URL(string: "https://claude.ai/login")!))
         return webView
     }
@@ -33,27 +36,6 @@ struct LoginWebView: NSViewRepresentable {
         func stopTimer() {
             cookieCheckTimer?.invalidate()
             cookieCheckTimer = nil
-        }
-
-        // Google, GitHub gibi OAuth provider'lari WKWebView'u engelliyor — browser'a yonlendir
-        func webView(
-            _ webView: WKWebView,
-            decidePolicyFor navigationAction: WKNavigationAction
-        ) async -> WKNavigationActionPolicy {
-            guard let url = navigationAction.request.url else {
-                return .allow
-            }
-
-            let host = url.host ?? ""
-
-            if host.contains("accounts.google.com") ||
-               host.contains("github.com/login") ||
-               host.contains("appleid.apple.com") {
-                NSWorkspace.shared.open(url)
-                return .cancel
-            }
-
-            return .allow
         }
 
         func webView(_ webView: WKWebView, didFinish navigation: WKNavigation!) {
