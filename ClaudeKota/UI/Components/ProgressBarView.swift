@@ -12,10 +12,11 @@ struct ProgressBarView: View {
                 RoundedRectangle(cornerRadius: DT.Size.progressBarHeight / 2)
                     .fill(LinearGradient(colors: gradientColors, startPoint: .leading, endPoint: .trailing))
                     .frame(width: geo.size.width * max(0, min(1, remaining)))
+                    .shadow(color: fillColor.opacity(0.4), radius: 4)
                     .animation(DT.Animation.progressFill, value: remaining)
                 if timeElapsedFraction > 0, timeElapsedFraction < 1 {
                     RoundedRectangle(cornerRadius: 1)
-                        .fill(DT.Colors.weeklyBlue)
+                        .fill(DT.Colors.weeklyPurple)
                         .frame(width: DT.Size.timeMarkerWidth, height: DT.Size.timeMarkerHeight)
                         .offset(x: geo.size.width * timeElapsedFraction - 1, y: -2)
                 }
@@ -24,8 +25,11 @@ struct ProgressBarView: View {
         .frame(height: DT.Size.progressBarHeight)
     }
 
+    private var fillColor: Color {
+        DT.Colors.statusColor(for: remaining)
+    }
+
     private var gradientColors: [Color] {
-        let color = DT.Colors.statusColor(for: remaining)
-        return [color.opacity(0.8), color]
+        return [fillColor.opacity(0.8), fillColor]
     }
 }

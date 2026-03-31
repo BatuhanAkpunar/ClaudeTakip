@@ -76,6 +76,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         popover = NSPopover()
         popover?.behavior = .transient
         popover?.animates = true
+        popover?.appearance = NSAppearance(named: .darkAqua)
         updatePopoverContent()
     }
 
@@ -106,7 +107,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             let hostingController = NSHostingController(rootView: view)
             hostingController.sizingOptions = []
             popover?.contentViewController = hostingController
-            popover?.contentSize = NSSize(width: DT.Size.popoverWidth, height: 520)
+            popover?.contentSize = NSSize(width: DT.Size.popoverWidth, height: 540)
         } else {
             let loginView = LoginView { [weak self] sessionKey in
                 Task { [weak self] in
@@ -118,7 +119,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             let hostingController = NSHostingController(rootView: loginView)
             hostingController.sizingOptions = []
             popover?.contentViewController = hostingController
-            popover?.contentSize = NSSize(width: DT.Size.popoverWidth, height: 400)
+            popover?.contentSize = NSSize(width: DT.Size.popoverWidth, height: 420)
         }
     }
 
@@ -171,11 +172,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     private func handleSignOut() {
         let alert = NSAlert()
-        alert.messageText = "Hesaptan cikmak istediginize emin misiniz?"
+        alert.messageText = "Hesaptan çıkmak istediğinize emin misiniz?"
         alert.informativeText = "Oturum verileri silinecek."
         alert.alertStyle = .warning
-        alert.addButton(withTitle: "Hesaptan Cik")
-        alert.addButton(withTitle: "Vazgec")
+        alert.addButton(withTitle: "Hesaptan Çık")
+        alert.addButton(withTitle: "Vazgeç")
         alert.buttons.first?.hasDestructiveAction = true
 
         if alert.runModal() == .alertFirstButtonReturn {
@@ -188,6 +189,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             authManager.signOut()
             updatePopoverContent()
         }
+    }
+
+    func checkForUpdates() {
+        updateManager.checkForUpdates()
     }
 
     // MARK: - Global Monitor

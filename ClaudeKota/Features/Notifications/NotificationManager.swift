@@ -22,8 +22,8 @@ final class NotificationManager {
            triggerState.fastAlertCount < PacingConstants.maxFastAlertPerSession {
             triggerState.fastAlertCount += 1
             sendNotification(
-                title: "Hizli tuketiyorsun",
-                body: "Bu hizda limitin erken bitebilir. Biraz yavaslamak iyi olabilir."
+                title: "Hızlı tüketiyorsun",
+                body: "Bu hızda limitin erken bitebilir. Biraz yavaşlamak iyi olabilir."
             )
             if settings.soundEnabled { soundPlayer.playNotificationSound() }
         }
@@ -34,8 +34,8 @@ final class NotificationManager {
            !triggerState.criticalAlertFired {
             triggerState.criticalAlertFired = true
             sendNotification(
-                title: "Limit bitmek uzere",
-                body: "Mesaj hakkinin %\(Int(appState.sessionRemaining * 100))'i kaldi."
+                title: "Limit bitmek üzere",
+                body: "Mesaj hakkının %\(Int(appState.sessionRemaining * 100))'i kaldı."
             )
             if settings.soundEnabled { soundPlayer.playNotificationSound() }
         }
@@ -47,8 +47,8 @@ final class NotificationManager {
            !triggerState.resetAlertFired {
             triggerState.resetAlertFired = true
             sendNotification(
-                title: "Hakkin yenilendi!",
-                body: "5 saatlik penceren sifirlandi. Keyifli kullanmalar."
+                title: "Hakkın yenilendi!",
+                body: "5 saatlik penceren sıfırlandı. Keyifli kullanımlar."
             )
             if settings.soundEnabled { soundPlayer.playNotificationSound() }
             // Reset sonrasi trigger state temizle

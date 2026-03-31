@@ -83,7 +83,7 @@ final class UsageService {
 
             updateResetDates(usage: usage)
         } catch is UsageParseError {
-            appState.connectionStatus = .error("Veri okunamiyor")
+            appState.connectionStatus = .error("Veri okunamıyor")
         } catch {
             handleError()
         }
@@ -115,7 +115,7 @@ final class UsageService {
     private func handleError() {
         appState.consecutiveErrors += 1
         if appState.consecutiveErrors >= TimingConstants.maxConsecutiveErrors {
-            appState.connectionStatus = .error("Baglanti sorunu")
+            appState.connectionStatus = .error("Bağlantı sorunu")
         }
     }
 

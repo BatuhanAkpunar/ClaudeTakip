@@ -11,7 +11,7 @@ struct InfoCardView: View {
                 .font(DT.Typography.cardValue)
                 .foregroundStyle(valueColor)
             Text(label)
-                .font(DT.Typography.smallCaption)
+                .font(DT.Typography.caption)
                 .foregroundStyle(.tertiary)
                 .textCase(.uppercase)
         }
@@ -20,5 +20,6 @@ struct InfoCardView: View {
         .padding(.vertical, DT.Spacing.cardPaddingV)
         .background(DT.Colors.cardBackground, in: RoundedRectangle(cornerRadius: DT.Radius.card))
         .overlay(RoundedRectangle(cornerRadius: DT.Radius.card).strokeBorder(DT.Colors.cardBorder, lineWidth: 0.5))
+        .overlay(RoundedRectangle(cornerRadius: DT.Radius.card).strokeBorder(valueColor.opacity(0.2), lineWidth: 0.5))
     }
 }

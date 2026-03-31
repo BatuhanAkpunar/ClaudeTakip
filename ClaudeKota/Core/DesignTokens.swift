@@ -1,23 +1,35 @@
 import SwiftUI
 
 enum DT {
-    // MARK: - Colors (adaptive)
+    // MARK: - Colors (Cyberpunk)
     enum Colors {
+        // Neon accent colors
+        static let neonCyan = Color(red: 0.0, green: 0.94, blue: 1.0)       // #00F0FF
+        static let neonMagenta = Color(red: 1.0, green: 0.18, blue: 0.47)   // #FF2D78
+        static let neonAmber = Color(red: 1.0, green: 0.72, blue: 0.0)      // #FFB800
+        static let neonPurple = Color(red: 0.66, green: 0.33, blue: 0.97)   // #A855F7
+        static let neonGreen = Color(red: 0.20, green: 1.0, blue: 0.60)     // #33FF99
+
+        // Status colors (adaptive — neon on dark, muted on light)
         static let statusGreen = Color(nsColor: NSColor(name: nil) { appearance in
             appearance.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua
-                ? NSColor(red: 0.29, green: 0.87, blue: 0.50, alpha: 1) // #4ade80
-                : NSColor(red: 0.09, green: 0.64, blue: 0.29, alpha: 1) // #16a34a
+                ? NSColor(red: 0.0, green: 0.94, blue: 1.0, alpha: 1)   // Neon cyan
+                : NSColor(red: 0.0, green: 0.65, blue: 0.72, alpha: 1)  // Muted cyan
         })
         static let statusOrange = Color(nsColor: NSColor(name: nil) { appearance in
             appearance.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua
-                ? NSColor(red: 0.96, green: 0.62, blue: 0.04, alpha: 1) // #f59e0b
-                : NSColor(red: 0.85, green: 0.47, blue: 0.02, alpha: 1) // #d97706
+                ? NSColor(red: 1.0, green: 0.72, blue: 0.0, alpha: 1)   // Neon amber
+                : NSColor(red: 0.80, green: 0.55, blue: 0.0, alpha: 1)  // Muted amber
         })
-        static let statusRed = Color(red: 0.94, green: 0.27, blue: 0.27)     // #ef4444
-        static let weeklyBlue = Color(nsColor: NSColor(name: nil) { appearance in
+        static let statusRed = Color(nsColor: NSColor(name: nil) { appearance in
             appearance.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua
-                ? NSColor(red: 0.38, green: 0.65, blue: 0.98, alpha: 1) // #60a5fa
-                : NSColor(red: 0.23, green: 0.51, blue: 0.96, alpha: 1) // #3b82f6
+                ? NSColor(red: 1.0, green: 0.18, blue: 0.47, alpha: 1)  // Neon magenta
+                : NSColor(red: 0.82, green: 0.12, blue: 0.38, alpha: 1) // Muted magenta
+        })
+        static let weeklyPurple = Color(nsColor: NSColor(name: nil) { appearance in
+            appearance.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua
+                ? NSColor(red: 0.66, green: 0.33, blue: 0.97, alpha: 1) // Neon purple
+                : NSColor(red: 0.50, green: 0.22, blue: 0.82, alpha: 1) // Muted purple
         })
 
         static func statusColor(for remaining: Double) -> Color {
@@ -29,28 +41,38 @@ enum DT {
         }
 
         // Surface colors
-        static let cardBackground = Color.primary.opacity(0.04)
-        static let cardBorder = Color.primary.opacity(0.08)
-        static let trackBackground = Color.primary.opacity(0.06)
-        static let hoverHighlight = Color.primary.opacity(0.06)
-        static let divider = Color.primary.opacity(0.06)
+        static let cardBackground = Color.primary.opacity(0.05)
+        static let cardBorder = Color.primary.opacity(0.10)
+        static let trackBackground = Color.primary.opacity(0.07)
+        static let hoverHighlight = Color.primary.opacity(0.08)
+        static let divider = Color.primary.opacity(0.08)
+
+        // Glow effects (neon glow shadows)
+        static let glowCyan = Color(red: 0.0, green: 0.94, blue: 1.0).opacity(0.4)
+        static let glowMagenta = Color(red: 1.0, green: 0.18, blue: 0.47).opacity(0.4)
+        static let glowAmber = Color(red: 1.0, green: 0.72, blue: 0.0).opacity(0.4)
+        static let glowPurple = Color(red: 0.66, green: 0.33, blue: 0.97).opacity(0.4)
     }
 
-    // MARK: - Typography
+    // MARK: - Typography (tech/monospace-forward)
     enum Typography {
-        static let heroPercent = Font.system(size: 52, weight: .bold, design: .monospaced)
-        static let cardValue = Font.system(size: 15, weight: .semibold, design: .monospaced)
+        static let heroPercent = Font.system(size: 56, weight: .heavy, design: .monospaced)
+        static let heroSubtitle = Font.system(size: 12, weight: .medium, design: .monospaced)
+        static let cardValue = Font.system(size: 14, weight: .bold, design: .monospaced)
         static let label = Font.system(size: 12, weight: .medium)
         static let body = Font.system(size: 12, weight: .regular)
-        static let caption = Font.system(size: 10, weight: .regular)
-        static let smallCaption = Font.system(size: 9, weight: .regular)
-        static let sectionTitle = Font.system(size: 10, weight: .semibold)
-        static let footerAction = Font.system(size: 11, weight: .regular)
+        static let caption = Font.system(size: 10, weight: .medium)
+        static let smallCaption = Font.system(size: 9, weight: .medium)
+        static let sectionTitle = Font.system(size: 10, weight: .heavy, design: .monospaced)
+        static let footerAction = Font.system(size: 11, weight: .medium)
+        static let toggleLabel = Font.system(size: 12, weight: .regular)
+        static let tooltipBody = Font.system(size: 11, weight: .regular)
+        static let tooltipTitle = Font.system(size: 11, weight: .semibold)
     }
 
     // MARK: - Spacing
     enum Spacing {
-        static let popoverPadding: CGFloat = 18
+        static let popoverPadding: CGFloat = 20
         static let cardPaddingH: CGFloat = 10
         static let cardPaddingV: CGFloat = 8
         static let sectionGap: CGFloat = 14
@@ -72,18 +94,20 @@ enum DT {
         static let progressFill = SwiftUI.Animation.easeInOut(duration: 0.6)
         static let hover = SwiftUI.Animation.easeInOut(duration: 0.15)
         static let notesSlide = SwiftUI.Animation.easeInOut(duration: 0.3)
+        static let pulse = SwiftUI.Animation.easeInOut(duration: 2.0).repeatForever(autoreverses: true)
+        static let refreshSpin = SwiftUI.Animation.linear(duration: 0.6)
     }
 
     // MARK: - Sizes
     enum Size {
-        static let popoverWidth: CGFloat = 300
-        static let popoverWithNotesWidth: CGFloat = 560
-        static let notesPanelWidth: CGFloat = 260
-        static let progressBarHeight: CGFloat = 5
+        static let popoverWidth: CGFloat = 320
+        static let popoverWithNotesWidth: CGFloat = 590
+        static let notesPanelWidth: CGFloat = 270
+        static let progressBarHeight: CGFloat = 6
         static let timeMarkerWidth: CGFloat = 2
-        static let timeMarkerHeight: CGFloat = 9
+        static let timeMarkerHeight: CGFloat = 10
         static let statusDotSize: CGFloat = 7
-        static let iconButtonSize: CGFloat = 26
+        static let iconButtonSize: CGFloat = 28
         static let toggleWidth: CGFloat = 32
         static let toggleHeight: CGFloat = 19
         static let checkboxSize: CGFloat = 15

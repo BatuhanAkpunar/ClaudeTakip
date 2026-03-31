@@ -9,23 +9,29 @@ struct HeroView: View {
         return Date().timeIntervalSince(lastUpdate) > 600
     }
 
+    private var statusColor: Color {
+        DT.Colors.statusColor(for: remaining)
+    }
+
     var body: some View {
         VStack(spacing: 4) {
             HStack(alignment: .firstTextBaseline, spacing: 0) {
                 Text("\(Int(remaining * 100))")
                     .font(DT.Typography.heroPercent)
-                    .foregroundStyle(DT.Colors.statusColor(for: remaining))
+                    .foregroundStyle(statusColor)
+                    .shadow(color: statusColor.opacity(0.5), radius: 8)
                 Text("%")
                     .font(.system(size: 28, weight: .bold, design: .monospaced))
-                    .foregroundStyle(DT.Colors.statusColor(for: remaining))
+                    .foregroundStyle(statusColor)
+                    .shadow(color: statusColor.opacity(0.5), radius: 8)
                 if isStale {
                     Text(" (eski)")
                         .font(.system(size: 11, weight: .medium))
                         .foregroundStyle(.tertiary)
                 }
             }
-            Text("mesaj hakkin kaldi")
-                .font(DT.Typography.label)
+            Text("mesaj hakkın kaldı")
+                .font(DT.Typography.heroSubtitle)
                 .foregroundStyle(.secondary)
         }
     }
