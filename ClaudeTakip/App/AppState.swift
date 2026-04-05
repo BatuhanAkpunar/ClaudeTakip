@@ -74,6 +74,7 @@ final class AppState {
     var paceStatus: PaceStatus = .unknown
     var previousUsage: Double?
     var aiPacingMessage: PacingMessage?
+    var isAIUnavailable: Bool = false
 
     // Usage history (in-memory — UsageCacheStore writes to disk)
     var usageHistory: [UsageSnapshot] = []

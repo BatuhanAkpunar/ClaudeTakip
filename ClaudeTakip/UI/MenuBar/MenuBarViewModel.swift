@@ -382,7 +382,7 @@ final class MenuBarViewModel {
 
     var extraUsedText: String {
         guard let extra = appState.extraUsage else { return "" }
-        return String(format: "$%.2f", (extra.usedCredits ?? 0) / 100.0)
+        return String(format: "$%.2f", max(0, extra.usedCredits ?? 0) / 100.0)
     }
 
     private func formatRemainingLines(_ date: Date) -> (String, String) {

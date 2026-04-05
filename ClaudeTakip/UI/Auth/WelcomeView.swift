@@ -7,10 +7,13 @@ struct WelcomeView: View {
         VStack(spacing: 0) {
             Spacer()
 
-            Image("ClaudeLogo")
-                .resizable()
-                .aspectRatio(contentMode: .fit)
-                .frame(width: 52, height: 52)
+            if let nsImage = NSImage(named: "ClaudeLogo") {
+                Image(nsImage: nsImage)
+                    .resizable()
+                    .interpolation(.high)
+                    .aspectRatio(contentMode: .fit)
+                    .frame(width: 56, height: 56)
+            }
 
             Spacer().frame(height: 14)
 
@@ -34,7 +37,7 @@ struct WelcomeView: View {
                     .foregroundStyle(.white)
                     .padding(.horizontal, 28)
                     .padding(.vertical, 11)
-                    .background(DT.Colors.claudeAccent, in: Capsule())
+                    .background(Capsule().fill(DT.Colors.claudeAccent))
             }
             .buttonStyle(.plain)
 
@@ -47,5 +50,6 @@ struct WelcomeView: View {
             Spacer()
         }
         .frame(width: DT.Size.popoverWidth, height: 300)
+        .popoverBG()
     }
 }

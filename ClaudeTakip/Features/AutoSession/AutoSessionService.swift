@@ -1,4 +1,7 @@
 import Foundation
+import os.log
+
+private let logger = Logger(subsystem: "com.batuhanakpunar.ClaudeTakip", category: "AutoSession")
 
 @MainActor
 final class AutoSessionService {
@@ -31,6 +34,21 @@ final class AutoSessionService {
         checkTimer = nil
     }
 
+    /// Immediately starts a new session using the cheapest model (Haiku).
+    func startSessionNow() async {
+        guard let sessionKey = authManager.getSessionKey(),
+              let orgId = appState.organizationId else { return }
+
+        do {
+            let convId = try await createConversation(sessionKey: sessionKey, orgId: orgId)
+            try await sendMessage(sessionKey: sessionKey, orgId: orgId, convId: convId, model: "claude-3-5-haiku-20241022")
+            try? await deleteConversation(sessionKey: sessionKey, orgId: orgId, convId: convId)
+            logger.debug("[AutoSession] Immediate session started successfully")
+        } catch {
+            logger.debug("[AutoSession] Immediate session failed: \(error)")
+        }
+    }
+
     private func checkAndStartSession() async {
         guard notesManager.settings.autoSession,
               let resetDate = appState.sessionResetDate,
@@ -41,30 +59,34 @@ final class AutoSessionService {
 
         try? await Task.sleep(for: .seconds(TimingConstants.autoSessionDelay))
 
-        // Re-check after delay (user may have disabled or session may have refreshed)
+        // Re-check after delay (user may have disabled or session already refreshed)
         guard notesManager.settings.autoSession,
-              let _ = appState.sessionResetDate else { return }
+              let currentReset = appState.sessionResetDate,
+              Date() > currentReset else { return }
 
         guard let sessionKey = authManager.getSessionKey(),
               let orgId = appState.organizationId else { return }
 
         lastAttemptDate = Date()
 
+        var convId: String?
         do {
             // 1. Create a new conversation
-            let convId = try await createConversation(sessionKey: sessionKey, orgId: orgId)
+            convId = try await createConversation(sessionKey: sessionKey, orgId: orgId)
 
-            // 2. Send a message to trigger a new session window
-            try await sendMessage(sessionKey: sessionKey, orgId: orgId, convId: convId)
-
-            // 3. Clean up — delete the temporary conversation
-            try? await deleteConversation(sessionKey: sessionKey, orgId: orgId, convId: convId)
+            // 2. Send a message to trigger a new session window (Haiku = cheapest)
+            try await sendMessage(sessionKey: sessionKey, orgId: orgId, convId: convId!, model: "claude-3-5-haiku-20241022")
 
             // Success — clear the expired reset date
             appState.sessionResetDate = nil
-            print("[AutoSession] New session started successfully")
+            logger.debug("[AutoSession] New session started successfully")
         } catch {
-            print("[AutoSession] Failed: \(error)")
+            logger.debug("[AutoSession] Failed: \(error)")
+        }
+
+        // Always clean up — even if sendMessage failed
+        if let convId {
+            try? await deleteConversation(sessionKey: sessionKey, orgId: orgId, convId: convId)
         }
     }
 
@@ -91,14 +113,14 @@ final class AutoSessionService {
         guard let httpResponse = response as? HTTPURLResponse,
               (200...201).contains(httpResponse.statusCode) else {
             let code = (response as? HTTPURLResponse)?.statusCode ?? -1
-            print("[AutoSession] Create conversation failed with status: \(code)")
+            logger.debug("[AutoSession] Create conversation failed with status: \(code)")
             throw AutoSessionError.createFailed
         }
 
         return convUUID
     }
 
-    private func sendMessage(sessionKey: String, orgId: String, convId: String) async throws {
+    private func sendMessage(sessionKey: String, orgId: String, convId: String, model: String? = nil) async throws {
         let urlString = APIConstants.baseURL + APIConstants.completionPath(orgId: orgId, convId: convId)
         guard let url = URL(string: urlString) else { throw AutoSessionError.invalidURL }
 
@@ -108,16 +130,19 @@ final class AutoSessionService {
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
         request.timeoutInterval = 30
 
-        let body: [String: Any] = [
+        var body: [String: Any] = [
             "prompt": "hi",
             "timezone": TimeZone.current.identifier
         ]
+        if let model {
+            body["model"] = model
+        }
         request.httpBody = try JSONSerialization.data(withJSONObject: body)
 
         let (_, response) = try await URLSession.shared.data(for: request)
         guard let httpResponse = response as? HTTPURLResponse, httpResponse.statusCode == 200 else {
             let code = (response as? HTTPURLResponse)?.statusCode ?? -1
-            print("[AutoSession] Send message failed with status: \(code)")
+            logger.debug("[AutoSession] Send message failed with status: \(code)")
             throw AutoSessionError.messageFailed
         }
     }

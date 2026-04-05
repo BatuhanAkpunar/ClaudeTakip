@@ -46,6 +46,8 @@ final class UsageCacheStore {
     private(set) var cache = UsageCacheFile()
     private var pendingWrites = 0
     private let batchThreshold = 5
+    private var lastWriteDate: Date?
+    private static let maxFlushInterval: TimeInterval = 300 // 5 minutes
 
     private static let maxSessionHistory = 100
     private static let maxWeeklyHistory = 500
@@ -145,11 +147,6 @@ final class UsageCacheStore {
         forceFlush()
     }
 
-    func clearAll() {
-        cache = UsageCacheFile()
-        try? FileManager.default.removeItem(at: Self.fileURL)
-    }
-
     // MARK: - Flush
 
     func forceFlush() {
@@ -161,7 +158,9 @@ final class UsageCacheStore {
 
     private func markDirty() {
         pendingWrites += 1
-        if pendingWrites >= batchThreshold {
+        let shouldFlush = pendingWrites >= batchThreshold
+            || (lastWriteDate.map { Date().timeIntervalSince($0) >= Self.maxFlushInterval } ?? true)
+        if shouldFlush {
             pendingWrites = 0
             writeToDisk()
         }
@@ -181,6 +180,7 @@ final class UsageCacheStore {
             }
             let data = try JSONEncoder.withISO8601.encode(cache)
             try data.write(to: Self.fileURL, options: .atomic)
+            lastWriteDate = Date()
         } catch {
             // Silent error — not critical, will retry on next batch
         }

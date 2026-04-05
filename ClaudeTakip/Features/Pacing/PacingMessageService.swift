@@ -20,15 +20,25 @@ final class PacingMessageService {
         notesManager.settings.language ?? Bundle.main.preferredLocalizations.first ?? "en"
     }
 
+    /// Whether Groq calls are blocked due to repeated failures.
+    var isBlocked: Bool {
+        consecutiveErrors >= GroqConstants.maxConsecutiveErrors
+    }
+
     // MARK: - Triggers
 
     func onAppLaunch() {
-        guard appState.hasLoadedUsage else { return }
+        guard appState.hasLoadedUsage,
+              appState.paceStatus != .unknown,
+              !isUsageEmpty
+        else { return }
+        consecutiveErrors = 0
+        appState.isAIUnavailable = false
         fetchNow(reason: "launch")
     }
 
     func onStateChanged(to newState: PaceStatus) {
-        guard newState != .unknown else { return }
+        guard newState != .unknown, !isUsageEmpty else { return }
 
         let languageChanged = currentLanguage != lastFetchedLanguage
 
@@ -48,6 +58,7 @@ final class PacingMessageService {
     }
 
     func onPopoverOpen() {
+        guard appState.paceStatus != .unknown, !isUsageEmpty else { return }
         if let fetchedAt = lastFetchedAt,
            Date().timeIntervalSince(fetchedAt) < GroqConstants.debounceInterval {
             return
@@ -56,25 +67,37 @@ final class PacingMessageService {
     }
 
     func onStaleCacheCheck() {
-        // Language change: invalidate cache and refetch immediately
-        if lastFetchedLanguage != nil, currentLanguage != lastFetchedLanguage,
-           appState.paceStatus != .unknown {
+        guard appState.paceStatus != .unknown, !isUsageEmpty else { return }
+
+        // Language change: invalidate cache and refetch
+        if lastFetchedLanguage != nil, currentLanguage != lastFetchedLanguage {
             appState.aiPacingMessage = nil
-            fetchNow(reason: "languageChanged")
+            debounceTask?.cancel()
+            debounceTask = Task { [weak self] in
+                try? await Task.sleep(for: .seconds(GroqConstants.debounceInterval))
+                guard !Task.isCancelled else { return }
+                self?.fetchNow(reason: "languageChanged")
+            }
             return
         }
 
         guard let fetchedAt = lastFetchedAt,
-              Date().timeIntervalSince(fetchedAt) >= GroqConstants.staleCacheInterval,
-              appState.paceStatus != .unknown
+              Date().timeIntervalSince(fetchedAt) >= GroqConstants.staleCacheInterval
         else { return }
 
         fetchNow(reason: "stale")
     }
 
+    /// No meaningful usage data yet — skip Groq.
+    private var isUsageEmpty: Bool {
+        appState.sessionUsage <= 0 && appState.weeklyUsage <= 0
+    }
+
     // MARK: - Initial Fetch
 
     func fetchInitialMessage(timeout: TimeInterval = 8) async {
+        guard !isUsageEmpty else { return }
+
         let context = buildContext()
         let language = currentLanguage
 
@@ -102,7 +125,10 @@ final class PacingMessageService {
     // MARK: - Fetch
 
     private func fetchNow(reason: String) {
-        guard consecutiveErrors < GroqConstants.maxConsecutiveErrors else { return }
+        guard consecutiveErrors < GroqConstants.maxConsecutiveErrors else {
+            appState.isAIUnavailable = true
+            return
+        }
 
         inFlightTask?.cancel()
         inFlightTask = Task { [weak self] in
@@ -117,6 +143,7 @@ final class PacingMessageService {
                 guard !Task.isCancelled else { return }
 
                 appState.aiPacingMessage = message
+                appState.isAIUnavailable = false
                 lastFetchedState = appState.paceStatus
                 lastFetchedAt = Date()
                 lastFetchedLanguage = language
@@ -125,8 +152,10 @@ final class PacingMessageService {
                 // Cancelled task
             } catch GroqError.rateLimited {
                 consecutiveErrors += 1
+                if isBlocked { appState.isAIUnavailable = true }
             } catch {
                 consecutiveErrors += 1
+                if isBlocked { appState.isAIUnavailable = true }
             }
         }
     }
@@ -145,7 +174,7 @@ final class PacingMessageService {
                 resetDate.addingTimeInterval(-TimingConstants.sessionWindowDuration)
             )
             let fraction = max(0.01, elapsed / TimingConstants.sessionWindowDuration)
-            sessionRate = appState.sessionUsage / fraction
+            sessionRate = min(10.0, appState.sessionUsage / fraction)
         } else {
             sessionRate = 1.0
         }
@@ -157,7 +186,7 @@ final class PacingMessageService {
             let remaining = resetDate.timeIntervalSince(Date())
             let elapsed = totalWindow - remaining
             let fraction = max(0.01, elapsed / totalWindow)
-            weeklyRate = appState.weeklyUsage / fraction
+            weeklyRate = min(10.0, appState.weeklyUsage / fraction)
         } else {
             weeklyRate = 1.0
         }
@@ -226,7 +255,7 @@ final class PacingMessageService {
         }
 
         // If quota was depleted earlier today (only in risky zone)
-        if let overflowDate = UserDefaults.standard.object(forKey: "lastSessionOverflowDate") as? Date,
+        if let overflowDate = UserDefaults.standard.object(forKey: UserDefaultsKeys.lastSessionOverflowDate) as? Date,
            Calendar.current.isDateInToday(overflowDate),
            appState.sessionUsage < 1.0,
            appState.sessionUsage >= 0.5 {
@@ -306,5 +335,6 @@ final class PacingMessageService {
         lastFetchedAt = nil
         lastFetchedLanguage = nil
         consecutiveErrors = 0
+        appState.isAIUnavailable = false
     }
 }

@@ -200,15 +200,6 @@ struct SpeedometerGaugeView: View {
         rate > 1.03 ? "arrow.up.right" : "equal"
     }
 
-    private func formatRate(_ value: Double) -> String {
-        if value >= 1.95 { return "2x+" }
-        let truncated = (value * 10).rounded(.down) / 10
-        if abs(truncated - truncated.rounded()) < 0.05 && truncated >= 0 {
-            return String(format: "%.0fx", truncated)
-        }
-        return String(format: "%.1fx", truncated)
-    }
-
     private func rateNumber(_ value: Double) -> String {
         if value >= 1.95 { return "2" }
         let truncated = (value * 10).rounded(.down) / 10

@@ -43,12 +43,12 @@ final class MenuBarIconRenderer {
     /// Menu bar: [Claude logo] [pil bar + %XX] [H:MM]
     func render(remaining: Double, resetTimeText: String, hasLoaded: Bool) -> NSImage {
         let logoSize: CGFloat = 16
+        let totalHeight: CGFloat = 22
         let gap: CGFloat = 4
         let barWidth: CGFloat = 36
         let barHeight: CGFloat = 18
         let barRadius: CGFloat = 4
         let timeGap: CGFloat = 4
-        let totalHeight: CGFloat = 22
 
         let isDark = NSApp.effectiveAppearance.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua
 

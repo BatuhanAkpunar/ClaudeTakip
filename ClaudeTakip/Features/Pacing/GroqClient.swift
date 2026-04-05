@@ -79,7 +79,8 @@ enum GroqClient: Sendable {
             "response_format": ["type": "json_object"]
         ]
 
-        var request = URLRequest(url: URL(string: GroqConstants.baseURL)!)
+        guard let url = URL(string: GroqConstants.baseURL) else { throw GroqError.invalidResponse }
+        var request = URLRequest(url: url)
         request.httpMethod = "POST"
         request.setValue("Bearer \(GroqConstants.apiKey)", forHTTPHeaderField: "Authorization")
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
@@ -114,7 +115,8 @@ enum GroqClient: Sendable {
             throw GroqError.parseFailed
         }
 
-        let parsed = try JSONDecoder().decode(PacingMessage.self, from: contentData)
+        let raw = try JSONDecoder().decode(PacingMessage.self, from: contentData)
+        let parsed = PacingMessage(message: raw.message.trimmingCharacters(in: .whitespacesAndNewlines))
 
         guard !parsed.message.isEmpty else {
             throw GroqError.parseFailed

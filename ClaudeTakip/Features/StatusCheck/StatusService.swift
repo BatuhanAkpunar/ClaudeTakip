@@ -1,12 +1,16 @@
 import Foundation
 import AppKit
 
+enum StatusParseError: Error {
+    case missingFields
+}
+
 enum StatusResponseParser {
     static func parse(_ data: Data) throws -> SystemStatus {
         guard let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
               let status = json["status"] as? [String: Any],
               let indicator = status["indicator"] as? String else {
-            throw UsageParseError.missingFields
+            throw StatusParseError.missingFields
         }
         switch indicator {
         case "none": return .operational

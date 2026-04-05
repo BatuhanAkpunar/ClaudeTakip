@@ -1,4 +1,5 @@
 import SwiftUI
+// Uses .glassCard() from DesignTokens
 
 struct UsageBarCard: View {
     let title: String

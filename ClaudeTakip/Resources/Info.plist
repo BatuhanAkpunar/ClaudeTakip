@@ -24,7 +24,9 @@
     <true/>
     <key>SUFeedURL</key>
     <string>https://claudetakip.vercel.app/appcast.xml</string>
-<key>NSMainNibFile</key>
+    <key>SUPublicEDKey</key>
+    <string>7kbZCP4w8kBr2kYnYLIwDq0NLi5GJ9vRTs8eyuNF4Ws=</string>
+    <key>NSMainNibFile</key>
     <string></string>
 </dict>
 </plist>

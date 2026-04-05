@@ -1,4 +1,5 @@
 import SwiftUI
+// Uses .glassCard() from DesignTokens
 
 struct LoadingView: View {
     @State private var pulsing = false
