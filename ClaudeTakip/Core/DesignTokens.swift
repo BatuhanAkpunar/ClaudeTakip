@@ -17,22 +17,8 @@ enum DT {
             }
         }
 
-        static let cardBorder = Color.primary.opacity(0.10)
-        static let trackBackground = Color.primary.opacity(0.12)
-        static let hoverHighlight = Color.primary.opacity(0.08)
-        static let popoverBackground = Color(white: 0.945)
     }
 
-    enum Typography {
-        static let barLabel = Font.system(size: 12, weight: .medium)
-        static let barValue = Font.system(size: 12, weight: .semibold, design: .monospaced)
-        static let sectionTitle = Font.system(size: 11, weight: .semibold)
-        static let caption = Font.system(size: 10, weight: .medium)
-    }
-
-    enum Spacing {
-        static let popoverPadding: CGFloat = 16
-    }
 
     enum Radius {
         static let card: CGFloat = 10
@@ -61,18 +47,18 @@ struct GlassCard: ViewModifier {
             .background(
                 RoundedRectangle(cornerRadius: DT.Radius.card)
                     .fill(isDark
-                          ? Color.white.opacity(0.09)
-                          : Color(red: 0.98, green: 0.98, blue: 0.973))
+                          ? Color.white.opacity(0.12)
+                          : Color.white.opacity(0.85))
             )
             .overlay(
                 RoundedRectangle(cornerRadius: DT.Radius.card)
                     .strokeBorder(
                         LinearGradient(
                             colors: isDark
-                                ? [Color.white.opacity(0.15),
-                                   Color.white.opacity(0.06)]
-                                : [Color.black.opacity(0.05),
-                                   Color.black.opacity(0.02)],
+                                ? [Color.white.opacity(0.22),
+                                   Color.white.opacity(0.08)]
+                                : [Color.black.opacity(0.08),
+                                   Color.black.opacity(0.03)],
                             startPoint: .top,
                             endPoint: .bottom
                         ),
@@ -80,8 +66,8 @@ struct GlassCard: ViewModifier {
                     )
             )
             .shadow(
-                color: isDark ? .black.opacity(0.25) : .black.opacity(0.04),
-                radius: isDark ? 8 : 5,
+                color: isDark ? .black.opacity(0.35) : .black.opacity(0.08),
+                radius: isDark ? 10 : 6,
                 y: 3
             )
     }
@@ -90,6 +76,28 @@ struct GlassCard: ViewModifier {
 extension View {
     func glassCard() -> some View {
         modifier(GlassCard())
+    }
+}
+
+// MARK: - Popover Background
+
+struct PopoverBackground: ViewModifier {
+    @Environment(\.colorScheme) private var colorScheme
+
+    func body(content: Content) -> some View {
+        content
+            .background(
+                RoundedRectangle(cornerRadius: DT.Radius.popoverRadius)
+                    .fill(colorScheme == .dark
+                          ? Color(red: 0.11, green: 0.11, blue: 0.12)
+                          : Color(red: 0.94, green: 0.94, blue: 0.96))
+            )
+    }
+}
+
+extension View {
+    func popoverBG() -> some View {
+        modifier(PopoverBackground())
     }
 }
 

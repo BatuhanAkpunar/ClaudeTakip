@@ -57,6 +57,10 @@ enum GroqConstants {
     static let maxConsecutiveErrors: Int = 5
 }
 
+enum UserDefaultsKeys {
+    static let lastSessionOverflowDate = "lastSessionOverflowDate"
+}
+
 enum KeychainConstants {
     static let service = "com.batuhanakpunar.ClaudeTakip"
     static let sessionKeyAccount = "sessionKey"

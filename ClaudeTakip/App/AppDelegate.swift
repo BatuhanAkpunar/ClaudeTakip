@@ -93,11 +93,20 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             }
             let signOutAction: () -> Void = { [weak self] in self?.handleSignOut() }
             let quitAction: () -> Void = { NSApp.terminate(nil) }
+            let startSessionAction: () -> Void = { [weak self] in
+                Task {
+                    await self?.autoSessionService.startSessionNow()
+                    await self?.usageService.fetchUsage()
+                }
+            }
+            let checkUpdateAction: () -> Void = { [weak self] in self?.checkForUpdates() }
             let view = MenuBarView(
                 viewModel: vm,
                 onRefresh: refreshAction,
                 onSignOut: signOutAction,
-                onQuit: quitAction
+                onQuit: quitAction,
+                onStartSession: startSessionAction,
+                onCheckUpdate: checkUpdateAction
             )
             let hostingController = NSHostingController(rootView: view)
             hostingController.sizingOptions = [.preferredContentSize]
@@ -227,7 +236,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         statusService.stopPolling()
         autoSessionService.stopMonitoring()
         pacingMessageService.reset()
-        cacheStore.clearAll()
+        cacheStore.forceFlush()
         authManager.signOut()
         updatePopoverContent()
         updateIcon()
@@ -286,7 +295,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private func handleSignOut() {
         let alert = NSAlert()
         alert.messageText = String(localized: "Are you sure you want to sign out?", bundle: .app)
-        alert.informativeText = String(localized: "Session data will be deleted.", bundle: .app)
+        alert.informativeText = String(localized: "Your usage history will be preserved.", bundle: .app)
         alert.alertStyle = .warning
         alert.addButton(withTitle: String(localized: "Sign Out", bundle: .app))
         alert.addButton(withTitle: String(localized: "Cancel", bundle: .app))
@@ -300,7 +309,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             statusService.stopPolling()
             autoSessionService.stopMonitoring()
             pacingMessageService.reset()
-            cacheStore.clearAll()
+            cacheStore.forceFlush()
             authManager.signOut()
             updatePopoverContent()
             updateIcon()

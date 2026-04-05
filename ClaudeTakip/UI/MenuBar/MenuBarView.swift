@@ -1,4 +1,5 @@
 import SwiftUI
+// No LiquidGlass — fixed colors to avoid window-state vibrancy shift
 
 // MARK: - Main View
 
@@ -7,13 +8,16 @@ struct MenuBarView: View {
     let onRefresh: () -> Void
     let onSignOut: () -> Void
     let onQuit: () -> Void
+    var onStartSession: (() -> Void)?
+    var onCheckUpdate: (() -> Void)?
     @State private var isRefreshing = false
     @State private var isQuitHovered = false
     @State private var isSettingsExpanded = false
     @State private var isInfoExpanded = false
     @State private var selectedChartTab: ChartTab = .session
-    @State private var isChartExpanded = false
+    @State private var isChartExpanded = true
     @State private var valuesRevealed = false
+    @State private var isCheckingUpdate = false
 
     enum ChartTab: String, CaseIterable { case session, weekly }
 
@@ -80,8 +84,8 @@ struct MenuBarView: View {
                 .padding(.vertical, 8)
         }
         .frame(width: DT.Size.popoverWidth)
+        .popoverBG()
         .clipShape(RoundedRectangle(cornerRadius: DT.Radius.popoverRadius))
-        .background { popoverBackground }
         .preferredColorScheme(colorScheme)
         .environment(\.locale, viewModel.appLocale)
         .onAppear {
@@ -113,23 +117,6 @@ struct MenuBarView: View {
         }
     }
 
-    @Environment(\.colorScheme) private var currentColorScheme
-
-    @ViewBuilder
-    private var popoverBackground: some View {
-        if currentColorScheme == .dark {
-            LinearGradient(
-                colors: [
-                    Color(red: 0.118, green: 0.118, blue: 0.118),
-                    Color(red: 0.098, green: 0.098, blue: 0.098)
-                ],
-                startPoint: .top,
-                endPoint: .bottom
-            )
-        } else {
-            DT.Colors.popoverBackground
-        }
-    }
 
     // MARK: - Header Bar (Product header)
 
@@ -143,16 +130,18 @@ struct MenuBarView: View {
 
                 HStack(spacing: 0) {
                     if let name = viewModel.appState.accountName {
-                        HStack(spacing: 3) {
+                        HStack(spacing: 4) {
                             Text(name.truncatedBeforeApostropheS)
                                 .font(.system(size: 10.5, weight: .medium))
                                 .foregroundStyle(.primary.opacity(0.70))
                                 .lineLimit(1)
+                                .truncationMode(.tail)
                             Button(action: { onSignOut() }) {
-                                BI.boxArrowRight.view(size: 8)
+                                BI.boxArrowRight.view(size: 9)
                                     .foregroundStyle(.primary.opacity(0.70))
                             }
                             .buttonStyle(.plain)
+                            .fixedSize()
                             .help(Text("Sign out", bundle: .app))
                         }
                     }
@@ -295,7 +284,7 @@ struct MenuBarView: View {
             Text(title)
                 .font(.system(size: 10, weight: .medium))
                 .tracking(0.5)
-                .foregroundStyle(.secondary.opacity(0.7))
+                .foregroundStyle(.primary.opacity(0.50))
                 .lineLimit(1)
                 .frame(maxWidth: .infinity, alignment: .center)
 
@@ -549,8 +538,29 @@ struct MenuBarView: View {
     private var aiRecommendation: some View {
         let strategy = viewModel.paceStrategy
         let accent = viewModel.paceStatusColor
+        let unavailable = viewModel.appState.isAIUnavailable && viewModel.appState.aiPacingMessage == nil
         return Group {
-            if !strategy.isEmpty {
+            if unavailable {
+                HStack(spacing: 6) {
+                    Image(systemName: "sparkles")
+                        .font(.system(size: 12, weight: .medium))
+                        .foregroundStyle(.secondary.opacity(0.5))
+                    Text("AI recommendations are currently unavailable", bundle: .app)
+                        .font(.system(size: 11.5, weight: .medium))
+                        .foregroundStyle(.secondary.opacity(0.7))
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .padding(.horizontal, 12)
+                .padding(.vertical, 10)
+                .background(
+                    RoundedRectangle(cornerRadius: DT.Radius.card)
+                        .fill(Color.primary.opacity(0.03))
+                )
+                .overlay(
+                    RoundedRectangle(cornerRadius: DT.Radius.card)
+                        .strokeBorder(Color.primary.opacity(0.06), lineWidth: 1)
+                )
+            } else if !strategy.isEmpty {
                 Text(strategy)
                     .font(.system(size: 12.5, weight: .semibold))
                     .foregroundStyle(.primary.opacity(0.90))
@@ -560,11 +570,12 @@ struct MenuBarView: View {
                     .padding(12)
                     .overlay(alignment: .bottomTrailing) {
                         Image(systemName: "sparkles")
-                            .font(.system(size: 42, weight: .medium))
-                            .foregroundStyle(accent.opacity(0.28))
-                            .offset(x: 12, y: 12)
+                            .font(.system(size: 38, weight: .bold))
+                            .foregroundStyle(accent.opacity(0.25))
+                            .offset(x: 6, y: 6)
                             .allowsHitTesting(false)
                     }
+                    .clipShape(RoundedRectangle(cornerRadius: DT.Radius.card))
                 .background(
                     RoundedRectangle(cornerRadius: DT.Radius.card)
                         .fill(LinearGradient(
@@ -743,7 +754,10 @@ struct MenuBarView: View {
             ) {
                 PillToggle(isOn: Binding(
                     get: { viewModel.notesManager.settings.autoSession },
-                    set: { v in viewModel.notesManager.updateSettings { $0.autoSession = v } }
+                    set: { v in
+                        viewModel.notesManager.updateSettings { $0.autoSession = v }
+                        if v { onStartSession?() }
+                    }
                 ))
             }
 
@@ -815,6 +829,28 @@ struct MenuBarView: View {
 
     private var infoPanel: some View {
         VStack(spacing: 0) {
+            // Logo + app name header
+            VStack(spacing: 8) {
+                Image("ClaudeLogo")
+                    .renderingMode(.original)
+                    .resizable()
+                    .aspectRatio(contentMode: .fit)
+                    .frame(width: 40, height: 40)
+
+                VStack(spacing: 3) {
+                    Text("ClaudeTakip")
+                        .font(.system(size: 14, weight: .bold, design: .rounded))
+                        .foregroundStyle(.primary.opacity(0.85))
+                    Text("v\(appVersion)")
+                        .font(.system(size: 11, weight: .medium, design: .monospaced))
+                        .foregroundStyle(.primary.opacity(0.45))
+                }
+            }
+            .frame(maxWidth: .infinity)
+            .padding(.vertical, 14)
+
+            ThemedDivider()
+
             infoLinkRow(
                 icon: "globe",
                 title: String(localized: "Website", bundle: .app),
@@ -845,24 +881,38 @@ struct MenuBarView: View {
 
             infoDivider
 
-            HStack(spacing: 10) {
-                Image(systemName: "info.circle")
-                    .font(.system(size: 13, weight: .medium))
-                    .foregroundStyle(.primary.opacity(0.55))
-                    .frame(width: 24, alignment: .center)
-
-                VStack(alignment: .leading, spacing: 3) {
-                    Text("ClaudeTakip v\(appVersion)")
-                        .font(.system(size: 12, weight: .semibold))
-                        .foregroundStyle(.primary.opacity(0.85))
-                    Text("An independent macOS app that tracks your Claude AI usage limits. Not affiliated with Anthropic.", bundle: .app)
-                        .font(.system(size: 11, weight: .medium))
-                        .foregroundStyle(.primary.opacity(0.50))
-                        .lineLimit(3)
-                        .fixedSize(horizontal: false, vertical: true)
-                }
+            HStack {
+                Text("Update", bundle: .app)
+                    .font(.system(size: 12, weight: .medium))
+                    .foregroundStyle(.primary.opacity(0.65))
 
                 Spacer(minLength: 4)
+
+                Button(action: {
+                    guard !isCheckingUpdate else { return }
+                    isCheckingUpdate = true
+                    onCheckUpdate?()
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 3) {
+                        isCheckingUpdate = false
+                    }
+                }) {
+                    Group {
+                        if isCheckingUpdate {
+                            ProgressView()
+                                .controlSize(.small)
+                                .frame(width: 12, height: 12)
+                        } else {
+                            Text("Check", bundle: .app)
+                                .font(.system(size: 11, weight: .medium))
+                        }
+                    }
+                    .foregroundStyle(DT.Colors.claudeAccent)
+                    .padding(.horizontal, 8)
+                    .padding(.vertical, 4)
+                    .background(DT.Colors.claudeAccent.opacity(0.12), in: Capsule())
+                }
+                .buttonStyle(.plain)
+                .disabled(isCheckingUpdate)
             }
             .padding(.horizontal, 14)
             .padding(.vertical, 11)

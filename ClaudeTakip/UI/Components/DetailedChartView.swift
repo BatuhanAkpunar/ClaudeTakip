@@ -291,12 +291,14 @@ struct DetailedChartView: View {
             let p2 = points[i + 1]
             let p3 = i + 2 < points.count ? points[i + 2] : points[i + 1]
 
+            // Clamp control point x to [p1.x, p2.x] to prevent overshoot
+            // when there's a large gap between sparse data points
             let cp1 = CGPoint(
-                x: p1.x + (p2.x - p0.x) * tension,
+                x: max(p1.x, min(p2.x, p1.x + (p2.x - p0.x) * tension)),
                 y: p1.y + (p2.y - p0.y) * tension
             )
             let cp2 = CGPoint(
-                x: p2.x - (p3.x - p1.x) * tension,
+                x: max(p1.x, min(p2.x, p2.x - (p3.x - p1.x) * tension)),
                 y: p2.y - (p3.y - p1.y) * tension
             )
 
@@ -310,10 +312,7 @@ struct DetailedChartView: View {
         guard let resetDate, !snapshots.isEmpty else { return [] }
         let windowStart = resetDate.addingTimeInterval(-windowDuration)
 
-        var allSnapshots = [UsageSnapshot(timestamp: windowStart, usage: 0)]
-        allSnapshots.append(contentsOf: snapshots)
-
-        return allSnapshots.compactMap { snapshot in
+        return snapshots.compactMap { snapshot in
             let elapsed = snapshot.timestamp.timeIntervalSince(windowStart)
             guard elapsed >= 0 else { return nil }
             let xFraction = min(1, elapsed / windowDuration)

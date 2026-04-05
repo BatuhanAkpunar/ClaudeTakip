@@ -105,14 +105,14 @@ final class UsageService {
 
         // If session quota is full, save the date (to inform Groq in the next session)
         if usage.fiveHourUtilization >= 1.0 {
-            UserDefaults.standard.set(Date(), forKey: "lastSessionOverflowDate")
+            UserDefaults.standard.set(Date(), forKey: UserDefaultsKeys.lastSessionOverflowDate)
         }
 
         // Reset date tracking — session
         if let resetDate = usage.fiveHourResetsAt {
             let oldReset = appState.sessionResetDate
             appState.sessionResetDate = resetDate
-            if let old = oldReset, abs(old.timeIntervalSince(resetDate)) > 60 {
+            if let old = oldReset, abs(old.timeIntervalSince(resetDate)) > 10 {
                 cacheStore.clearSessionHistory()
                 appState.usageHistory.removeAll()
             }
@@ -122,7 +122,7 @@ final class UsageService {
         if let weeklyReset = usage.sevenDayResetsAt {
             let oldReset = appState.weeklyResetDate
             appState.weeklyResetDate = weeklyReset
-            if let old = oldReset, abs(old.timeIntervalSince(weeklyReset)) > 60 {
+            if let old = oldReset, abs(old.timeIntervalSince(weeklyReset)) > 10 {
                 cacheStore.clearWeeklyHistory()
                 appState.weeklyUsageHistory.removeAll()
             }
@@ -136,7 +136,7 @@ final class UsageService {
         if let sonnetReset = usage.sonnetResetsAt {
             let oldReset = appState.sonnetResetDate
             appState.sonnetResetDate = sonnetReset
-            if let old = oldReset, abs(old.timeIntervalSince(sonnetReset)) > 60 {
+            if let old = oldReset, abs(old.timeIntervalSince(sonnetReset)) > 10 {
                 cacheStore.clearSonnetHistory()
                 appState.sonnetUsageHistory.removeAll()
             }

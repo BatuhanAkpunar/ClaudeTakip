@@ -80,11 +80,7 @@ final class AuthManager {
         appState.paceStatus = .unknown
         appState.previousUsage = nil
         appState.aiPacingMessage = nil
-
-        // History
-        appState.usageHistory.removeAll()
-        appState.weeklyUsageHistory.removeAll()
-        appState.sonnetUsageHistory.removeAll()
+        appState.isAIUnavailable = false
 
         // Connection / refresh
         appState.connectionStatus = .disconnected
@@ -113,7 +109,9 @@ final class AuthManager {
     }
 
     private func fetchOrganizationInfo(sessionKey: String) async throws -> (id: String, name: String?, plan: String?) {
-        let url = URL(string: APIConstants.baseURL + APIConstants.organizationsPath)!
+        guard let url = URL(string: APIConstants.baseURL + APIConstants.organizationsPath) else {
+            throw AuthError.organizationFetchFailed
+        }
         var request = URLRequest(url: url)
         request.setValue("sessionKey=\(sessionKey)", forHTTPHeaderField: "Cookie")
 
