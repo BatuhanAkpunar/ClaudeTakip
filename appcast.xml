@@ -5,5 +5,18 @@
         <link>https://claudetakip.vercel.app/appcast.xml</link>
         <description>ClaudeTakip Updates</description>
         <language>en</language>
+        <item>
+            <title>v1.0.0</title>
+            <pubDate>Mon, 06 Apr 2026 01:17:08 +0300</pubDate>
+            <sparkle:version>1</sparkle:version>
+            <sparkle:shortVersionString>1.0.0</sparkle:shortVersionString>
+            <sparkle:minimumSystemVersion>15.0</sparkle:minimumSystemVersion>
+            <enclosure
+                url="https://github.com/BatuhanAkpunar/ClaudeTakip-App/releases/download/v1.0.0/ClaudeTakip.zip"
+                length="1789861"
+                type="application/octet-stream"
+                sparkle:edSignature="J0wBWq4XyAjcUJHeeJTv1nX9xmV8iSalyZIVsECppmoA3+6cLPQ6KY433Hrj9FZVzqIgtfQ3FEbAoOh9g5MbBw=="
+            />
+        </item>
     </channel>
 </rss>
