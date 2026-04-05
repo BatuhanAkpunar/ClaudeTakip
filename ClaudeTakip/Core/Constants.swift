@@ -49,7 +49,9 @@ enum PacingConstants {
 }
 
 enum GroqConstants {
-    static let apiKey = "GROQ_API_KEY_REDACTED"
+    static let apiKey: String = {
+        Bundle.main.object(forInfoDictionaryKey: "GROQ_API_KEY") as? String ?? ""
+    }()
     static let baseURL = "https://api.groq.com/openai/v1/chat/completions"
     static let model = "meta-llama/llama-4-scout-17b-16e-instruct"
     static let debounceInterval: TimeInterval = 30
