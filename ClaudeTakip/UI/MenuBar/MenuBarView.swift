@@ -282,7 +282,7 @@ struct MenuBarView: View {
             )
             donutCard(
                 usage: rv(viewModel.appState.weeklyUsage),
-                color: viewModel.weeklySmartColor,
+                color: DT.Colors.statusColor(for: 1.0 - viewModel.appState.weeklyUsage),
                 title: String(localized: "WEEKLY (7 DAYS)", bundle: .app),
                 subtitle: viewModel.weeklyRenewalText
             )
