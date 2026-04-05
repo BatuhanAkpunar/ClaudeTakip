@@ -2,7 +2,7 @@
 
 ## Project Overview
 
-**ClaudeKota** is a macOS menu bar app that tracks Claude AI usage limits.
+**ClaudeTakip** is a macOS menu bar app that tracks Claude AI usage limits.
 
 - **Language:** Swift 6
 - **Frameworks:** AppKit + SwiftUI
@@ -14,8 +14,8 @@
 
 ```bash
 xcodegen generate
-xcodebuild -project ClaudeKota.xcodeproj -scheme ClaudeKota -configuration Debug build
-xcodebuild -project ClaudeKota.xcodeproj -scheme ClaudeKota test
+xcodebuild -project ClaudeTakip.xcodeproj -scheme ClaudeTakip -configuration Debug build
+xcodebuild -project ClaudeTakip.xcodeproj -scheme ClaudeTakip test
 ```
 
 ## Architecture

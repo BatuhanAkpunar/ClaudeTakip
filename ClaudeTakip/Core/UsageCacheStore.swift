@@ -1,0 +1,206 @@
+import Foundation
+
+// MARK: - Cache Models
+
+struct UsageBucket: Codable, Sendable {
+    var utilization: Double     // 0-1 (API returns 0-100, divided by 100 during recording)
+    var resetsAt: Date?
+}
+
+struct ExtraUsageInfo: Codable, Sendable {
+    var isEnabled: Bool
+    var monthlyLimit: Double?   // in cents
+    var usedCredits: Double?    // in cents
+    var utilization: Double?    // 0-100
+    var currentBalance: Double? // in cents
+    var autoReload: Bool?
+}
+
+struct CachedUsage: Codable, Sendable {
+    var fiveHour: UsageBucket?
+    var sevenDay: UsageBucket?
+    var sevenDaySonnet: UsageBucket?
+    var extraUsage: ExtraUsageInfo?
+}
+
+struct UsageCacheFile: Codable, Sendable {
+    var version: Int = 1
+    var lastUpdate: Date?
+    var current: CachedUsage = .init()
+    var sessionHistory: [UsageSnapshot] = []
+    var weeklyHistory: [UsageSnapshot] = []
+    var sonnetHistory: [UsageSnapshot] = []
+}
+
+// MARK: - Cache Store
+
+@MainActor
+final class UsageCacheStore {
+    private static let directoryURL: URL = {
+        let appSupport = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first!
+        return appSupport.appendingPathComponent("ClaudeTakip", isDirectory: true)
+    }()
+
+    private static let fileURL = directoryURL.appendingPathComponent("usage-cache.json")
+
+    private(set) var cache = UsageCacheFile()
+    private var pendingWrites = 0
+    private let batchThreshold = 5
+
+    private static let maxSessionHistory = 100
+    private static let maxWeeklyHistory = 500
+    private static let maxModelHistory = 200
+
+    // MARK: - Load
+
+    func load() {
+        migrateFromUserDefaultsIfNeeded()
+        guard let data = try? Data(contentsOf: Self.fileURL),
+              let file = try? JSONDecoder.withISO8601.decode(UsageCacheFile.self, from: data)
+        else { return }
+        cache = file
+    }
+
+    /// One-time migration from UserDefaults to file-based system
+    private func migrateFromUserDefaultsIfNeeded() {
+        let ud = UserDefaults.standard
+        let oldKeys = [
+            "claudekota_usage_history",
+            "claudekota_history_reset_date",
+            "claudekota_weekly_history",
+            "claudekota_weekly_reset_date",
+            "claudekota_sonnet_history",
+            "claudekota_sonnet_reset_date"
+        ]
+        guard oldKeys.contains(where: { ud.object(forKey: $0) != nil }) else { return }
+
+        // Read old data — UserDefaults uses epoch-based dates
+        let legacyDecoder = JSONDecoder()
+        legacyDecoder.dateDecodingStrategy = .deferredToDate
+
+        if let data = ud.data(forKey: "claudekota_usage_history"),
+           let history = try? legacyDecoder.decode([UsageSnapshot].self, from: data) {
+            cache.sessionHistory = history
+        }
+        if let data = ud.data(forKey: "claudekota_weekly_history"),
+           let history = try? legacyDecoder.decode([UsageSnapshot].self, from: data) {
+            cache.weeklyHistory = history
+        }
+        if let data = ud.data(forKey: "claudekota_sonnet_history"),
+           let history = try? legacyDecoder.decode([UsageSnapshot].self, from: data) {
+            cache.sonnetHistory = history
+        }
+
+        // Write to new file
+        writeToDisk()
+
+        // Clean up old keys
+        for key in oldKeys {
+            ud.removeObject(forKey: key)
+        }
+    }
+
+    // MARK: - Update Current
+
+    func updateCurrent(_ usage: CachedUsage) {
+        cache.current = usage
+        cache.lastUpdate = Date()
+        markDirty()
+    }
+
+    // MARK: - Record Snapshots
+
+    func recordSessionSnapshot(usage: Double) {
+        cache.sessionHistory.append(UsageSnapshot(timestamp: Date(), usage: usage))
+        trimIfNeeded(&cache.sessionHistory, max: Self.maxSessionHistory)
+        markDirty()
+    }
+
+    func recordWeeklySnapshot(usage: Double) {
+        cache.weeklyHistory.append(UsageSnapshot(timestamp: Date(), usage: usage))
+        trimIfNeeded(&cache.weeklyHistory, max: Self.maxWeeklyHistory)
+        markDirty()
+    }
+
+    func recordSonnetSnapshot(usage: Double) {
+        cache.sonnetHistory.append(UsageSnapshot(timestamp: Date(), usage: usage))
+        trimIfNeeded(&cache.sonnetHistory, max: Self.maxModelHistory)
+        markDirty()
+    }
+
+    // MARK: - Clear
+
+    func clearSessionHistory() {
+        cache.sessionHistory.removeAll()
+        forceFlush()
+    }
+
+    func clearWeeklyHistory() {
+        cache.weeklyHistory.removeAll()
+        forceFlush()
+    }
+
+    func clearSonnetHistory() {
+        cache.sonnetHistory.removeAll()
+        forceFlush()
+    }
+
+    func clearAll() {
+        cache = UsageCacheFile()
+        try? FileManager.default.removeItem(at: Self.fileURL)
+    }
+
+    // MARK: - Flush
+
+    func forceFlush() {
+        pendingWrites = 0
+        writeToDisk()
+    }
+
+    // MARK: - Private
+
+    private func markDirty() {
+        pendingWrites += 1
+        if pendingWrites >= batchThreshold {
+            pendingWrites = 0
+            writeToDisk()
+        }
+    }
+
+    private func trimIfNeeded(_ array: inout [UsageSnapshot], max limit: Int) {
+        if array.count > limit {
+            array.removeFirst(array.count - limit)
+        }
+    }
+
+    private func writeToDisk() {
+        do {
+            let fm = FileManager.default
+            if !fm.fileExists(atPath: Self.directoryURL.path) {
+                try fm.createDirectory(at: Self.directoryURL, withIntermediateDirectories: true)
+            }
+            let data = try JSONEncoder.withISO8601.encode(cache)
+            try data.write(to: Self.fileURL, options: .atomic)
+        } catch {
+            // Silent error — not critical, will retry on next batch
+        }
+    }
+}
+
+// MARK: - JSON Coders
+
+private extension JSONEncoder {
+    static let withISO8601: JSONEncoder = {
+        let e = JSONEncoder()
+        e.dateEncodingStrategy = .iso8601
+        return e
+    }()
+}
+
+private extension JSONDecoder {
+    static let withISO8601: JSONDecoder = {
+        let d = JSONDecoder()
+        d.dateDecodingStrategy = .iso8601
+        return d
+    }()
+}
