@@ -1,53 +1,96 @@
 import Foundation
+import Security
 
-/// File-based credential storage.
-/// Stores data like session keys in ~/Library/Application Support/ClaudeTakip/.credentials
-/// with 0600 permissions. Does not use Keychain — no password prompt.
+/// macOS Keychain-based credential storage.
+/// Uses SecItemAdd/SecItemCopyMatching for secure storage with
+/// kSecAttrAccessibleWhenUnlockedThisDeviceOnly access control.
 struct KeychainService: Sendable {
-    private static let directoryURL: URL = {
-        let appSupport = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first!
-        return appSupport.appendingPathComponent("ClaudeTakip", isDirectory: true)
-    }()
-
-    private static let fileURL = directoryURL.appendingPathComponent(".credentials")
+    private static let service = KeychainConstants.service
 
     func save(key: String, value: String) throws {
-        var dict = loadAll()
-        dict[key] = value
-        try writeAll(dict)
+        // Delete existing item first
+        let deleteQuery: [String: Any] = [
+            kSecClass as String: kSecClassGenericPassword,
+            kSecAttrService as String: Self.service,
+            kSecAttrAccount as String: key
+        ]
+        SecItemDelete(deleteQuery as CFDictionary)
+
+        // Add new item
+        guard let data = value.data(using: .utf8) else { return }
+        let addQuery: [String: Any] = [
+            kSecClass as String: kSecClassGenericPassword,
+            kSecAttrService as String: Self.service,
+            kSecAttrAccount as String: key,
+            kSecValueData as String: data,
+            kSecAttrAccessible as String: kSecAttrAccessibleWhenUnlockedThisDeviceOnly
+        ]
+        let status = SecItemAdd(addQuery as CFDictionary, nil)
+        guard status == errSecSuccess else {
+            throw KeychainError.saveFailed(status)
+        }
     }
 
     func retrieve(key: String) throws -> String? {
-        loadAll()[key]
+        let query: [String: Any] = [
+            kSecClass as String: kSecClassGenericPassword,
+            kSecAttrService as String: Self.service,
+            kSecAttrAccount as String: key,
+            kSecReturnData as String: true,
+            kSecMatchLimit as String: kSecMatchLimitOne
+        ]
+        var result: AnyObject?
+        let status = SecItemCopyMatching(query as CFDictionary, &result)
+
+        switch status {
+        case errSecSuccess:
+            guard let data = result as? Data else { return nil }
+            return String(data: data, encoding: .utf8)
+        case errSecItemNotFound:
+            return nil
+        default:
+            throw KeychainError.retrieveFailed(status)
+        }
     }
 
     func delete(key: String) throws {
-        var dict = loadAll()
-        dict.removeValue(forKey: key)
-        if dict.isEmpty {
-            try? FileManager.default.removeItem(at: Self.fileURL)
-        } else {
-            try writeAll(dict)
+        let query: [String: Any] = [
+            kSecClass as String: kSecClassGenericPassword,
+            kSecAttrService as String: Self.service,
+            kSecAttrAccount as String: key
+        ]
+        let status = SecItemDelete(query as CFDictionary)
+        guard status == errSecSuccess || status == errSecItemNotFound else {
+            throw KeychainError.deleteFailed(status)
         }
     }
+}
 
-    // MARK: - Private
+// MARK: - Migration from file-based storage
 
-    private func loadAll() -> [String: String] {
-        guard let data = try? Data(contentsOf: Self.fileURL),
-              let dict = try? JSONDecoder().decode([String: String].self, from: data) else {
-            return [:]
+extension KeychainService {
+    /// Migrates credentials from old plaintext file to Keychain (one-time).
+    func migrateFromFileIfNeeded() {
+        let appSupport = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first!
+        let fileURL = appSupport
+            .appendingPathComponent("ClaudeTakip", isDirectory: true)
+            .appendingPathComponent(".credentials")
+
+        guard let data = try? Data(contentsOf: fileURL),
+              let dict = try? JSONDecoder().decode([String: String].self, from: data) else { return }
+
+        // Migrate each key to Keychain
+        for (key, value) in dict {
+            try? save(key: key, value: value)
         }
-        return dict
-    }
 
-    private func writeAll(_ dict: [String: String]) throws {
-        let fm = FileManager.default
-        if !fm.fileExists(atPath: Self.directoryURL.path) {
-            try fm.createDirectory(at: Self.directoryURL, withIntermediateDirectories: true)
-        }
-        let data = try JSONEncoder().encode(dict)
-        try data.write(to: Self.fileURL, options: .atomic)
-        try fm.setAttributes([.posixPermissions: 0o600], ofItemAtPath: Self.fileURL.path)
+        // Securely delete the old file
+        try? FileManager.default.removeItem(at: fileURL)
     }
+}
+
+enum KeychainError: Error {
+    case saveFailed(OSStatus)
+    case retrieveFailed(OSStatus)
+    case deleteFailed(OSStatus)
 }

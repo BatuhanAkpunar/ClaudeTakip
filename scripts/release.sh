@@ -24,7 +24,7 @@ cd "$PROJECT_DIR"
 APP_NAME="ClaudeTakip"
 SCHEME="ClaudeTakip"
 BUILD_DIR="$PROJECT_DIR/build/release"
-GITHUB_REPO="BatuhanAkpunar/ClaudeTakip-App"
+GITHUB_REPO="BatuhanAkpunar/ClaudeTakip"
 DOWNLOAD_URL="https://github.com/$GITHUB_REPO/releases/download/v$VERSION/$APP_NAME.zip"
 
 # Sparkle tools (from DerivedData)

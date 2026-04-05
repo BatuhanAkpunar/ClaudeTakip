@@ -27,6 +27,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private var pacingTask: Task<Void, Never>?
 
     func applicationDidFinishLaunching(_ notification: Notification) {
+        KeychainService().migrateFromFileIfNeeded()
         LanguageManager.apply(notesManager.settings.language)
         setupStatusItem()
         setupPopover()
@@ -224,7 +225,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             previousUsage: appState.previousUsage,
             totalWindowMinutes: TimingConstants.sessionWindowDuration / 60,
             remainingMinutes: remainingMinutes,
-            pollIntervalMinutes: TimingConstants.usagePollingInterval / 60
+            weeklyUsage: appState.weeklyUsage
         )
     }
 
@@ -275,8 +276,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                     currentUsage: currentUsage,
                     previousUsage: appState.previousUsage,
                     totalWindowMinutes: TimingConstants.sessionWindowDuration / 60,
-                    remainingMinutes: remainingMinutes,
-                    pollIntervalMinutes: TimingConstants.usagePollingInterval / 60
+                    remainingMinutes: remainingMinutes
                 )
                 appState.paceStatus = newState
 
