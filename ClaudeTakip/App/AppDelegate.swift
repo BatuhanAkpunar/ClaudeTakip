@@ -5,6 +5,7 @@ import SwiftUI
 final class AppDelegate: NSObject, NSApplicationDelegate {
     private var statusItem: NSStatusItem?
     private var popover: NSPopover?
+    private var loginWindow: NSWindow?
     private var globalMonitor: Any?
     private var wakeObserver: Any?
 
@@ -38,10 +39,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 updatePopoverContent()
                 startServices()
             } else {
-                // If not logged in, open the popover automatically
-                if let button = statusItem?.button {
-                    popover?.show(relativeTo: button.bounds, of: button, preferredEdge: .minY)
-                }
+                // Not logged in — popover will show WelcomeView when user clicks the icon
             }
         }
     }
@@ -105,17 +103,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             hostingController.sizingOptions = [.preferredContentSize]
             popover?.contentViewController = hostingController
         } else {
-            let loginView = LoginView { [weak self] sessionKey in
-                Task { [weak self] in
-                    try? await self?.authManager.handleLoginCookie(sessionKey)
-                    self?.updatePopoverContent()
-                    self?.startServices()
-                }
+            let welcomeView = WelcomeView { [weak self] in
+                self?.popover?.performClose(nil)
+                self?.openLoginWindow()
             }
-            let hostingController = NSHostingController(rootView: loginView)
+            let hostingController = NSHostingController(rootView: welcomeView)
             hostingController.sizingOptions = [.intrinsicContentSize]
             popover?.contentViewController = hostingController
-            popover?.contentSize = NSSize(width: popoverWidth, height: 480)
+            popover?.contentSize = NSSize(width: popoverWidth, height: 300)
         }
     }
 
@@ -127,6 +122,40 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             pacingMessageService.onPopoverOpen()
             popover?.show(relativeTo: button.bounds, of: button, preferredEdge: .minY)
         }
+    }
+
+    // MARK: - Login Window
+
+    private func openLoginWindow() {
+        // Close existing window if any
+        loginWindow?.close()
+
+        let loginWebView = LoginWebView { [weak self] sessionKey in
+            Task { @MainActor [weak self] in
+                self?.loginWindow?.close()
+                self?.loginWindow = nil
+                try? await self?.authManager.handleLoginCookie(sessionKey)
+                self?.updatePopoverContent()
+                self?.startServices()
+                // Reopen popover to show dashboard
+                if let button = self?.statusItem?.button {
+                    self?.popover?.show(relativeTo: button.bounds, of: button, preferredEdge: .minY)
+                }
+            }
+        }
+
+        let hostingController = NSHostingController(rootView: loginWebView)
+        let window = NSWindow(contentViewController: hostingController)
+        window.title = "ClaudeTakip — Sign In"
+        window.styleMask = [.titled, .closable, .resizable]
+        window.setContentSize(NSSize(width: 520, height: 680))
+        window.minSize = NSSize(width: 400, height: 500)
+        window.center()
+        window.level = .floating
+        window.makeKeyAndOrderFront(nil)
+        NSApp.activate(ignoringOtherApps: true)
+
+        loginWindow = window
     }
 
     // MARK: - Services
@@ -307,6 +336,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     // MARK: - Cleanup
 
     func applicationWillTerminate(_ notification: Notification) {
+        loginWindow?.close()
+        loginWindow = nil
         iconUpdateTimer?.invalidate()
         iconUpdateTimer = nil
         pacingTask?.cancel()
