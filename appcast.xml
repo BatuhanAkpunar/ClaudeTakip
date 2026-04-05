@@ -2,7 +2,7 @@
 <rss version="2.0" xmlns:sparkle="http://www.andymatuschak.org/xml-namespaces/sparkle">
     <channel>
         <title>ClaudeTakip</title>
-        <link>https://claudetakip.vercel.app/appcast.xml</link>
+        <link>https://batuhanakpunar.github.io/ClaudeTakip/appcast.xml</link>
         <description>ClaudeTakip Updates</description>
         <language>en</language>
         <item>
@@ -12,7 +12,7 @@
             <sparkle:shortVersionString>1.0.0</sparkle:shortVersionString>
             <sparkle:minimumSystemVersion>15.0</sparkle:minimumSystemVersion>
             <enclosure
-                url="https://github.com/BatuhanAkpunar/ClaudeTakip-App/releases/download/v1.0.0/ClaudeTakip.zip"
+                url="https://github.com/BatuhanAkpunar/ClaudeTakip/releases/download/v1.0.0/ClaudeTakip.zip"
                 length="1789861"
                 type="application/octet-stream"
                 sparkle:edSignature="J0wBWq4XyAjcUJHeeJTv1nX9xmV8iSalyZIVsECppmoA3+6cLPQ6KY433Hrj9FZVzqIgtfQ3FEbAoOh9g5MbBw=="

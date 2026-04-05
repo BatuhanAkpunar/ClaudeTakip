@@ -15,7 +15,7 @@ struct LoginWebView: NSViewRepresentable {
             Object.defineProperty(navigator, 'webdriver', { get: function() { return false; } });
             """,
             injectionTime: .atDocumentStart,
-            forMainFrameOnly: false
+            forMainFrameOnly: true
         )
         config.userContentController.addUserScript(antiDetectScript)
 
@@ -153,7 +153,8 @@ struct LoginWebView: NSViewRepresentable {
                 Task { @MainActor [weak self] in
                     guard let self, !self.isExtracted else { return }
                     if let sessionCookie = cookies.first(where: {
-                        $0.name == "sessionKey" && $0.domain.contains("claude.ai")
+                        $0.name == "sessionKey"
+                            && ($0.domain == "claude.ai" || $0.domain == ".claude.ai")
                     }) {
                         self.isExtracted = true
                         self.stopTimer()

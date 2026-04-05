@@ -6,7 +6,7 @@ enum PacingEngine {
         previousUsage: Double?,
         totalWindowMinutes: Double,
         remainingMinutes: Double,
-        pollIntervalMinutes: Double
+        weeklyUsage: Double = 0
     ) -> PaceStatus {
         guard previousUsage != nil else { return .unknown }
 
@@ -44,12 +44,10 @@ enum PacingEngine {
             positionSeverity = .critical
         }
 
-        // Instantaneous rate check (only if there is a meaningful delta)
+        // Overall rate check: average speed across the session (matches the UI speed multiplier)
         let rateSeverity: PaceStatus
-        if delta > 0.001 {
-            let idealRate = 1.0 / totalWindowMinutes
-            let actualRate = delta / pollIntervalMinutes
-            let rateMultiplier = actualRate / idealRate
+        if elapsedFraction > 0.01 && currentUsage > 0.005 {
+            let rateMultiplier = currentUsage / elapsedFraction
 
             switch rateMultiplier {
             case ..<PacingConstants.steadyRateThreshold:
@@ -69,15 +67,20 @@ enum PacingEngine {
             rateSeverity = .comfortable
         }
 
-        let baseSeverity = max(positionSeverity, rateSeverity)
+        var severity = max(positionSeverity, rateSeverity)
 
-        // Absolute usage floor — "comfortable" is misleading at high usage
-        if currentUsage > 0.85 {
-            return max(baseSeverity, .moderate)
-        } else if currentUsage > 0.70 {
-            return max(baseSeverity, .steady)
+        // Session usage floor
+        if currentUsage > 0.80 {
+            severity = max(severity, .moderate)
+        } else if currentUsage > 0.65 {
+            severity = max(severity, .steady)
         }
 
-        return baseSeverity
+        // Weekly usage floor — ensures box color reflects weekly concerns too
+        if weeklyUsage > 0.70 {
+            severity = max(severity, .moderate)
+        }
+
+        return severity
     }
 }

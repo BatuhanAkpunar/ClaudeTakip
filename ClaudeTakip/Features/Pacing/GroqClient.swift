@@ -23,7 +23,8 @@ enum GroqClient: Sendable {
         - If extra usage is disabled and usage limit is reached, suggest enabling it. If active, remind them money is being spent or will be soon. In unlimited mode, emphasize there is no upper limit.
         - If usage limit was reached earlier today, be cautious and advise not to repeat the same mistake.
         - If Sonnet usage is high, suggest model diversity to the user.
-        - Match the given tone: urgent -> serious and directive, warning -> careful but calm, info -> neutral and brief, relaxed -> warm and encouraging.
+        - Match the given tone exactly: urgent -> serious and directive, warning -> careful but calm, info -> neutral and brief, relaxed -> warm and encouraging.
+        - Your message is displayed next to a colored indicator (Visual field). The tone already matches this color. Never contradict the visual — a relaxed tone means things are genuinely fine, an info tone means moderate awareness, a warning tone means the indicator is orange.
 
         Restrictions:
         - Do not use numbers, percentages, durations, or dollar amounts in the message. This information is already shown in the UI.
@@ -34,16 +35,22 @@ enum GroqClient: Sendable {
 
         Examples:
 
-        Session: 92%, Weekly: 45%, Speed: session 1.8x, Tone: warning
-        {"message": "Your session limit is about to be reached, but your weekly usage is comfortable. Take a short break now and wait for reset."}
+        Session: 92%, Weekly: 45%, Speed: session 1.8x, Visual: red, Tone: urgent
+        {"message": "Your session limit is about to be reached. Take a break now and wait for the reset, your weekly usage is still comfortable."}
 
-        Session: 100%, Weekly: 100%, Extra: limited and in use, Tone: urgent
+        Session: 100%, Weekly: 100%, Extra: limited and in use, Visual: red, Tone: urgent
         {"message": "All your usage limits are reached and you're spending from paid credits. Only do the work you must finish, postpone the rest."}
 
-        Session: 60%, Weekly: 50%, Speed: session 1.1x, weekly 1.0x, Tone: info
+        Session: 35%, Weekly: 75%, Speed: session 0.5x, weekly 1.2x, Visual: orange, Tone: warning
+        {"message": "Your weekly usage is getting high. Focus on essential tasks and use shorter, more targeted queries to preserve your remaining quota."}
+
+        Session: 60%, Weekly: 50%, Speed: session 1.4x, weekly 1.0x, Visual: orange, Tone: warning
+        {"message": "Your usage pace is slightly above ideal. Be more selective with your queries and take short breaks between sessions."}
+
+        Session: 45%, Weekly: 40%, Speed: session 0.8x, Visual: green, Tone: info
         {"message": "Your usage is at a moderate level and your pace is reasonable. Keep going but proceed carefully until the next reset."}
 
-        Session: 28%, Weekly: 20%, Speed: session 0.6x, Tone: relaxed
+        Session: 28%, Weekly: 20%, Speed: session 0.6x, Visual: green, Tone: relaxed
         {"message": "Everything is on track, your usage limits are safe and your pace is very balanced. Continue comfortably at your current rhythm."}
         """
 

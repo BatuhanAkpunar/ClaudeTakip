@@ -180,6 +180,7 @@ final class UsageCacheStore {
             }
             let data = try JSONEncoder.withISO8601.encode(cache)
             try data.write(to: Self.fileURL, options: .atomic)
+            try fm.setAttributes([.posixPermissions: 0o600], ofItemAtPath: Self.fileURL.path)
             lastWriteDate = Date()
         } catch {
             // Silent error — not critical, will retry on next batch

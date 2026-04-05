@@ -95,7 +95,7 @@ final class AuthManager {
     private func clearWebCookies() {
         let dataStore = WKWebsiteDataStore.default()
         dataStore.fetchDataRecords(ofTypes: WKWebsiteDataStore.allWebsiteDataTypes()) { records in
-            let claudeRecords = records.filter { $0.displayName.contains("claude") }
+            let claudeRecords = records.filter { $0.displayName == "claude.ai" }
             dataStore.removeData(ofTypes: WKWebsiteDataStore.allWebsiteDataTypes(), for: claudeRecords) {}
         }
     }
@@ -114,6 +114,7 @@ final class AuthManager {
         }
         var request = URLRequest(url: url)
         request.setValue("sessionKey=\(sessionKey)", forHTTPHeaderField: "Cookie")
+        request.timeoutInterval = 15
 
         let (data, response) = try await URLSession.shared.data(for: request)
         guard let httpResponse = response as? HTTPURLResponse, httpResponse.statusCode == 200 else {

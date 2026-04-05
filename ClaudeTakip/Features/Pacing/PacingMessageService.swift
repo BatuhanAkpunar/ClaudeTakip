@@ -262,6 +262,15 @@ final class PacingMessageService {
             parts.append("Note: Session quota was depleted earlier today")
         }
 
+        // Visual indicator color (so AI can align its message)
+        let visual: String
+        switch appState.paceStatus {
+        case .comfortable, .steady: visual = "green"
+        case .moderate, .elevated: visual = "orange"
+        case .high, .critical: visual = "red"
+        case .unknown: visual = "neutral"
+        }
+        parts.append("Visual: \(visual)")
         parts.append("Tone: \(tone)")
 
         return parts.joined(separator: " | ")
@@ -277,26 +286,29 @@ final class PacingMessageService {
         extraUsed: Bool,
         extraLimitCritical: Bool
     ) -> String {
-        // Urgent: quota full + money being spent, or both full
+        // Critical overrides — always urgent regardless of visual
         if sessionPercent >= 100 && weeklyPercent >= 100 { return "urgent" }
         if weeklyPercent >= 100 { return "urgent" }
         if sessionPercent >= 100 && extraUsed { return "urgent" }
 
-        // Warning: high usage, fast consumption, or extra limit critical
+        // High severity overrides
         if extraLimitCritical { return "warning" }
         if sessionPercent >= 100 { return "warning" }
-        if sessionRate > 2.0 && weeklyPercent > 50 { return "warning" }
-        if weeklyRate > 2.0 && weeklyPercent > 30 { return "warning" }
-        if weeklyPercent > 70 { return "warning" }
-        if sessionPercent > 80 { return "warning" }
-        if sessionRate > 1.5 && sessionPercent > 60 { return "warning" }
-        if weeklyRate > 1.5 && weeklyPercent > 50 { return "warning" }
 
-        // Relaxed: everything is safe
-        if sessionPercent < 50 && weeklyPercent < 50 { return "relaxed" }
-
-        // Info: moderate level
-        return "info"
+        // Derive from paceStatus so tone always matches box color
+        switch appState.paceStatus {
+        case .high, .critical:
+            return "urgent"
+        case .moderate, .elevated:
+            return "warning"
+        case .comfortable, .steady:
+            // Don't say "relaxed" if weekly acceleration is notable
+            if weeklyRate > 1.8 && weeklyPercent > 25 { return "info" }
+            if sessionPercent < 50 && weeklyPercent < 50 { return "relaxed" }
+            return "info"
+        case .unknown:
+            return "info"
+        }
     }
 
     // MARK: - Reset Time Formatters

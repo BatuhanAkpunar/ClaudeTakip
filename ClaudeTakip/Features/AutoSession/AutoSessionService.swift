@@ -45,7 +45,7 @@ final class AutoSessionService {
             try? await deleteConversation(sessionKey: sessionKey, orgId: orgId, convId: convId)
             logger.debug("[AutoSession] Immediate session started successfully")
         } catch {
-            logger.debug("[AutoSession] Immediate session failed: \(error)")
+            logger.debug("[AutoSession] Immediate session failed: \(type(of: error))")
         }
     }
 
@@ -81,7 +81,7 @@ final class AutoSessionService {
             appState.sessionResetDate = nil
             logger.debug("[AutoSession] New session started successfully")
         } catch {
-            logger.debug("[AutoSession] Failed: \(error)")
+            logger.debug("[AutoSession] Failed: \(type(of: error))")
         }
 
         // Always clean up — even if sendMessage failed
@@ -102,6 +102,7 @@ final class AutoSessionService {
         request.httpMethod = "POST"
         request.setValue("sessionKey=\(sessionKey)", forHTTPHeaderField: "Cookie")
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.timeoutInterval = 15
 
         let body: [String: Any] = [
             "uuid": convUUID,
@@ -154,6 +155,7 @@ final class AutoSessionService {
         var request = URLRequest(url: url)
         request.httpMethod = "DELETE"
         request.setValue("sessionKey=\(sessionKey)", forHTTPHeaderField: "Cookie")
+        request.timeoutInterval = 10
 
         let (_, _) = try await URLSession.shared.data(for: request)
     }
