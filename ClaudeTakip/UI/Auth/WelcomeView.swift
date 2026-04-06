@@ -49,6 +49,15 @@ struct WelcomeView: View {
 
             Spacer()
         }
+        .overlay(alignment: .bottomTrailing) {
+            Button(action: { NSApp.terminate(nil) }) {
+                Image(systemName: "power")
+                    .font(.system(size: 14, weight: .medium))
+                    .foregroundStyle(.secondary.opacity(0.5))
+            }
+            .buttonStyle(.plain)
+            .padding(12)
+        }
         .frame(width: DT.Size.popoverWidth, height: 300)
         .popoverBG()
     }
