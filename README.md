@@ -1,6 +1,10 @@
-# ClaudeTakip
+<p align="center">
+  <img src="icon.png" width="128" height="128" alt="ClaudeTakip">
+</p>
 
-A macOS menu bar app that tracks your Claude AI usage limits in real time.
+<h1 align="center">ClaudeTakip</h1>
+
+<p align="center">A macOS menu bar app that tracks your Claude AI usage limits in real time.</p>
 
 ## Features
 
