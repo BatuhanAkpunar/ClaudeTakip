@@ -6,6 +6,19 @@
         <description>ClaudeTakip Updates</description>
         <language>en</language>
         <item>
+            <title>v1.2.2</title>
+            <pubDate>Sun, 06 Apr 2026 21:00:00 +0300</pubDate>
+            <sparkle:version>6</sparkle:version>
+            <sparkle:shortVersionString>1.2.2</sparkle:shortVersionString>
+            <sparkle:minimumSystemVersion>15.0</sparkle:minimumSystemVersion>
+            <enclosure
+                url="https://github.com/BatuhanAkpunar/ClaudeTakip/releases/download/v1.2.2/ClaudeTakip.zip"
+                length="2227460"
+                type="application/octet-stream"
+                sparkle:edSignature="VT7nJ7eEjPyXjFCdwVQNDs3LT1Kj/ExAbHoR5K0t+hM/+jMvNN6Abd+YF3lw9ZPkiKk3w/44LjW2KoXoPC78BA=="
+            />
+        </item>
+        <item>
             <title>v1.2.1</title>
             <pubDate>Sun, 06 Apr 2026 19:44:00 +0300</pubDate>
             <sparkle:version>5</sparkle:version>
