@@ -11,6 +11,7 @@
 - **Real-time usage tracking** — monitors your 5-hour session and 7-day weekly limits
 - **Model-specific tracking** — separate Sonnet usage bar with reset countdown
 - **Extra usage monitoring** — tracks overage billing balance and spending
+- **Account panel** — view your account details, email, plan, subscription status, and spending
 - **AI-powered pacing** — intelligent recommendations based on your usage velocity
 - **Usage rate analysis** — speedometer gauges showing session and weekly pace
 - **Interactive charts** — detailed usage history with session and weekly views
