@@ -120,6 +120,11 @@ async function main() {
     execSync(`sudo cp -R "${appSrc}" "${INSTALL_DIR}/"`);
   }
 
+  // Remove macOS quarantine flag so Gatekeeper doesn't block the app
+  try {
+    execSync(`xattr -rd com.apple.quarantine "${APP_PATH}"`, { stdio: "ignore" });
+  } catch {}
+
   cleanup();
 
   log("Installed successfully!");
