@@ -76,9 +76,9 @@ final class AutoSessionService {
         try? await Task.sleep(for: .seconds(TimingConstants.autoSessionDelay))
 
         // Re-check after delay (user may have disabled or session already refreshed)
-        guard notesManager.settings.autoSession,
-              let currentReset = appState.sessionResetDate,
-              Date() > currentReset else { return }
+        guard notesManager.settings.autoSession else { return }
+        // If session is active and not expired, no need to start
+        if let currentReset = appState.sessionResetDate, currentReset > Date() { return }
 
         guard let sessionKey = authManager.getSessionKey(),
               let orgId = appState.organizationId else { return }
