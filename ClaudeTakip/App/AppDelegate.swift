@@ -187,9 +187,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         usageService.onSessionExpired = { [weak self] in
             self?.handleSessionExpired()
         }
-        autoSessionService.onSessionStarted = { [weak self] in
+        autoSessionService.onPingCompleted = { [weak self] in
             await self?.usageService.fetchUsage()
-            self?.autoSessionService.scheduleIfNeeded()
         }
 
         // Independent services start immediately
@@ -209,8 +208,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             await usageService.fetchUsage()
             guard !Task.isCancelled else { return }
 
-            // 2. Schedule auto-session based on fresh reset date
-            autoSessionService.scheduleIfNeeded()
+            // 2. Start auto-session polling (10 min interval)
+            autoSessionService.startPolling()
 
             // 3. Calculate pacing immediately
             performImmediatePacing()
@@ -224,8 +223,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             viewModel?.startClockTick()
             startPacingObservation()
 
-            // 5. Auto-start session if no active session exists
-            await autoSessionService.checkOnLaunch()
+            // 5. Fire initial ping immediately
+            await autoSessionService.startSessionNow()
         }
 
         // Safety net: show anyway if not loaded within 15s
@@ -296,12 +295,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                     if !alreadyFetched {
                         lastResetFetchDate = resetDate
                         await usageService.fetchUsage()
-                        autoSessionService.scheduleIfNeeded()
                         continue
                     }
                 } else {
                     lastResetFetchDate = nil
-                    autoSessionService.scheduleIfNeeded()
                 }
 
                 let currentUsage = appState.sessionUsage

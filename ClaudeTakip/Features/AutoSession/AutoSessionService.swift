@@ -8,9 +8,10 @@ final class AutoSessionService {
     private let appState: AppState
     private let authManager: AuthManager
     private let notesManager: NotesManager
-    private var scheduledTask: Task<Void, Never>?
-    private var scheduledResetDate: Date?
-    var onSessionStarted: (() async -> Void)?
+    private var pingTask: Task<Void, Never>?
+    var onPingCompleted: (() async -> Void)?
+
+    private let pingInterval: TimeInterval = 600 // 10 minutes
 
     init(appState: AppState, authManager: AuthManager, notesManager: NotesManager) {
         self.appState = appState
@@ -18,128 +19,60 @@ final class AutoSessionService {
         self.notesManager = notesManager
     }
 
-    // MARK: - Schedule
+    // MARK: - Start / Stop
 
-    /// Call whenever `sessionResetDate` changes (from UsageService, pacing loop, etc.)
-    func scheduleIfNeeded() {
-        guard notesManager.settings.autoSession else { return }
-
-        guard let resetDate = appState.sessionResetDate, resetDate > Date() else {
-            // No future reset date — check if session is already expired
-            if appState.hasLoadedUsage, appState.sessionResetDate == nil || (appState.sessionResetDate ?? .distantFuture) < Date() {
-                // Only schedule if not already scheduled for expired state
-                guard scheduledResetDate == nil else { return }
-                logger.debug("[AutoSession] Session expired, scheduling start in 5s")
-                scheduleStart(after: 5)
-                scheduledResetDate = .distantPast // Mark as scheduled for expired state
+    func startPolling() {
+        stopMonitoring()
+        pingTask = Task { [weak self] in
+            while !Task.isCancelled {
+                try? await Task.sleep(for: .seconds(self?.pingInterval ?? 600))
+                guard let self, !Task.isCancelled else { return }
+                guard notesManager.settings.autoSession else { continue }
+                await ping()
             }
-            return
         }
-
-        // Already scheduled for this reset date (1s tolerance for API timestamp variations)
-        if let scheduled = scheduledResetDate, abs(scheduled.timeIntervalSince(resetDate)) < 1 { return }
-
-        // Schedule for when the session expires + small buffer
-        let delay = resetDate.timeIntervalSince(Date()) + 5
-        logger.debug("[AutoSession] Scheduled for \(Int(delay))s from now (reset at \(resetDate.description))")
-        scheduleStart(after: delay)
-        scheduledResetDate = resetDate
+        logger.debug("[AutoSession] Polling started (every \(Int(self.pingInterval))s)")
     }
 
     func stopMonitoring() {
-        scheduledTask?.cancel()
-        scheduledTask = nil
-        scheduledResetDate = nil
+        pingTask?.cancel()
+        pingTask = nil
     }
 
     func resetState() {
         stopMonitoring()
     }
 
-    // MARK: - On Launch
-
-    func checkOnLaunch() async {
-        guard notesManager.settings.autoSession,
-              appState.hasLoadedUsage else { return }
-
-        // If session is already expired at launch, start immediately
-        if let resetDate = appState.sessionResetDate, resetDate < Date() {
-            logger.debug("[AutoSession] Launch: session already expired, starting...")
-            await startSession()
-        } else if appState.sessionResetDate == nil {
-            logger.debug("[AutoSession] Launch: no active session, starting...")
-            await startSession()
-        }
-        // Otherwise scheduleIfNeeded() will handle it when resetDate is set
-    }
-
     // MARK: - Manual Start (UI button)
 
     func startSessionNow() async {
-        await startSession()
+        await ping()
     }
 
-    // MARK: - Private
+    // MARK: - Ping
 
-    private func scheduleStart(after delay: TimeInterval) {
-        scheduledTask?.cancel()
-        scheduledTask = Task { [weak self] in
-            do {
-                try await Task.sleep(for: .seconds(max(1, delay)))
-            } catch { return }
-
-            guard let self, !Task.isCancelled else { return }
-            guard notesManager.settings.autoSession else {
-                logger.debug("[AutoSession] Scheduled fire: autoSession disabled, skipping")
-                return
-            }
-
-            // Verify session is actually expired
-            if let resetDate = appState.sessionResetDate, resetDate > Date() {
-                logger.debug("[AutoSession] Scheduled fire: session still active, skipping")
-                return
-            }
-
-            logger.debug("[AutoSession] Scheduled fire: starting session...")
-            await startSession()
-        }
-    }
-
-    private func startSession() async {
+    private func ping() async {
         guard let sessionKey = authManager.getSessionKey(),
               let orgId = appState.organizationId else {
-            logger.debug("[AutoSession] No credentials, cannot start session")
+            logger.debug("[AutoSession] No credentials, skipping ping")
             return
         }
 
         var convId: String?
-        var success = false
         do {
             convId = try await createConversation(sessionKey: sessionKey, orgId: orgId)
             guard let id = convId else { throw AutoSessionError.createFailed }
             try await sendMessage(sessionKey: sessionKey, orgId: orgId, convId: id, model: "claude-3-5-haiku-20241022")
-            success = true
-            logger.debug("[AutoSession] New session started successfully")
+            logger.debug("[AutoSession] Ping successful")
         } catch {
-            logger.debug("[AutoSession] Failed: \(type(of: error))")
+            logger.debug("[AutoSession] Ping failed: \(error.localizedDescription)")
         }
 
         if let convId {
             try? await deleteConversation(sessionKey: sessionKey, orgId: orgId, convId: convId)
         }
 
-        // Clear scheduled state so next resetDate change re-schedules
-        scheduledResetDate = nil
-
-        if success {
-            // Fetch fresh usage to get new resetDate
-            await onSessionStarted?()
-        } else {
-            // Retry after 60 seconds on failure
-            logger.debug("[AutoSession] Will retry in 60s")
-            scheduleStart(after: 60)
-            scheduledResetDate = .distantPast
-        }
+        await onPingCompleted?()
     }
 
     // MARK: - API Calls
@@ -183,13 +116,11 @@ final class AutoSessionService {
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
         request.timeoutInterval = 30
 
-        var body: [String: Any] = [
+        let body: [String: Any] = [
             "prompt": "hi",
-            "timezone": TimeZone.current.identifier
+            "timezone": TimeZone.current.identifier,
+            "model": model ?? "claude-3-5-haiku-20241022"
         ]
-        if let model {
-            body["model"] = model
-        }
         request.httpBody = try JSONSerialization.data(withJSONObject: body)
 
         let (_, response) = try await URLSession.shared.data(for: request)
