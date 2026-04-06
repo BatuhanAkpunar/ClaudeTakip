@@ -1,5 +1,6 @@
 import AppKit
 import SwiftUI
+import WebKit
 
 @MainActor
 final class AppDelegate: NSObject, NSApplicationDelegate {
@@ -25,9 +26,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     // Timers & tasks
     private var iconUpdateTimer: Timer?
     private var pacingTask: Task<Void, Never>?
+    private var startupTask: Task<Void, Never>?
+    private var safetyNetTask: Task<Void, Never>?
+    private var isHandlingSessionExpired = false
 
     func applicationDidFinishLaunching(_ notification: Notification) {
-        KeychainService().migrateFromFileIfNeeded()
+        KeychainService().migrateFromKeychainIfNeeded()
+        if notesManager.isFirstLaunch {
+            applySystemDefaults()
+        }
         LanguageManager.apply(notesManager.settings.language)
         setupStatusItem()
         setupPopover()
@@ -37,6 +44,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         Task {
             await authManager.checkExistingSession()
             if appState.isLoggedIn {
+                if let orgId = appState.organizationId {
+                    cacheStore.configure(orgId: orgId)
+                }
                 updatePopoverContent()
                 startServices()
             } else {
@@ -65,7 +75,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         let image = iconRenderer.render(
             remaining: appState.sessionRemaining,
             resetTimeText: resetText,
-            hasLoaded: appState.hasLoadedUsage
+            hasLoaded: appState.isLoggedIn && appState.hasLoadedUsage
         )
         statusItem?.button?.image = image
     }
@@ -145,6 +155,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 self?.loginWindow?.close()
                 self?.loginWindow = nil
                 try? await self?.authManager.handleLoginCookie(sessionKey)
+                if let orgId = self?.appState.organizationId {
+                    self?.cacheStore.configure(orgId: orgId)
+                }
                 self?.updatePopoverContent()
                 self?.startServices()
                 // Reopen popover to show dashboard
@@ -183,28 +196,33 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         usageService.startPolling()
 
         // Coordinated startup: API -> Pacing -> Groq -> UI
-        Task { [weak self] in
+        startupTask = Task { [weak self] in
             guard let self else { return }
 
             // 1. Fetch fresh data
             await usageService.fetchUsage()
+            guard !Task.isCancelled else { return }
 
             // 2. Calculate pacing immediately
             performImmediatePacing()
 
             // 3. Get Groq message (wait max 8s)
             await pacingMessageService.fetchInitialMessage(timeout: 8)
+            guard !Task.isCancelled else { return }
 
             // 4. Ready — show UI
             appState.hasLoadedUsage = true
             viewModel?.startClockTick()
             startPacingObservation()
+
+            // 5. Auto-start session if no active session exists
+            await autoSessionService.checkOnLaunch()
         }
 
         // Safety net: show anyway if not loaded within 15s
-        Task { [weak self] in
+        safetyNetTask = Task { [weak self] in
             try? await Task.sleep(for: .seconds(15))
-            guard let self, !appState.hasLoadedUsage else { return }
+            guard let self, !Task.isCancelled, !appState.hasLoadedUsage else { return }
             appState.hasLoadedUsage = true
             viewModel?.startClockTick()
             startPacingObservation()
@@ -230,14 +248,25 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     private func handleSessionExpired() {
+        guard !isHandlingSessionExpired else { return }
+        isHandlingSessionExpired = true
+        defer { isHandlingSessionExpired = false }
+
+        startupTask?.cancel()
+        startupTask = nil
+        safetyNetTask?.cancel()
+        safetyNetTask = nil
         pacingTask?.cancel()
         pacingTask = nil
         viewModel?.stopClockTick()
         usageService.stopPolling()
         statusService.stopPolling()
         autoSessionService.stopMonitoring()
+        autoSessionService.resetState()
         pacingMessageService.reset()
         cacheStore.forceFlush()
+        cacheStore.clearInMemory()
+        clearPerUserDefaults()
         authManager.signOut()
         updatePopoverContent()
         updateIcon()
@@ -295,25 +324,77 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private func handleSignOut() {
         let alert = NSAlert()
         alert.messageText = String(localized: "Are you sure you want to sign out?", bundle: .app)
-        alert.informativeText = String(localized: "Your usage history will be preserved.", bundle: .app)
+        alert.informativeText = String(localized: "ClaudeTakip will stop tracking your usage until you sign in again.", bundle: .app)
         alert.alertStyle = .warning
+        if let logo = NSImage(named: "ClaudeLogo") {
+            logo.size = NSSize(width: 80, height: 80)
+            alert.icon = logo
+        }
         alert.addButton(withTitle: String(localized: "Sign Out", bundle: .app))
         alert.addButton(withTitle: String(localized: "Cancel", bundle: .app))
         alert.buttons.first?.hasDestructiveAction = true
 
+        // Make the alert wider for a more spacious look
+        let window = alert.window
+        let frame = window.frame
+        let newWidth: CGFloat = 380
+        let widthDiff = newWidth - frame.width
+        window.setFrame(NSRect(
+            x: frame.origin.x - widthDiff / 2,
+            y: frame.origin.y,
+            width: newWidth,
+            height: frame.height
+        ), display: false)
+
         if alert.runModal() == .alertFirstButtonReturn {
+            startupTask?.cancel()
+            startupTask = nil
+            safetyNetTask?.cancel()
+            safetyNetTask = nil
             pacingTask?.cancel()
             pacingTask = nil
             viewModel?.stopClockTick()
             usageService.stopPolling()
             statusService.stopPolling()
             autoSessionService.stopMonitoring()
+            autoSessionService.resetState()
             pacingMessageService.reset()
             cacheStore.forceFlush()
+            cacheStore.clearInMemory()
+            clearPerUserDefaults()
             authManager.signOut()
             updatePopoverContent()
             updateIcon()
         }
+    }
+
+    // MARK: - First Launch Defaults
+
+    private func applySystemDefaults() {
+        let isDark = NSApp.effectiveAppearance.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua
+        let lang = detectSystemLanguage()
+        notesManager.updateSettings {
+            $0.darkMode = isDark
+            $0.language = lang
+        }
+    }
+
+    private func detectSystemLanguage() -> String {
+        let supported = ["en", "tr", "es", "fr", "de", "it", "nl", "ja", "ko", "zh-Hans", "zh-Hant", "ru", "ar", "pt-BR"]
+        for preferred in Locale.preferredLanguages {
+            if preferred.hasPrefix("zh-Hant") { return "zh-Hant" }
+            if preferred.hasPrefix("zh") { return "zh-Hans" }
+            if preferred.hasPrefix("pt") { return "pt-BR" }
+            if supported.contains(preferred) { return preferred }
+            let base = String(preferred.prefix(while: { $0 != "-" }))
+            if supported.contains(base) { return base }
+        }
+        return "en"
+    }
+
+    /// Removes UserDefaults keys that store per-user data.
+    private func clearPerUserDefaults() {
+        UserDefaults.standard.removeObject(forKey: UserDefaultsKeys.lastSessionOverflowDate)
     }
 
     func checkForUpdates() {
@@ -349,6 +430,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         loginWindow = nil
         iconUpdateTimer?.invalidate()
         iconUpdateTimer = nil
+        startupTask?.cancel()
+        safetyNetTask?.cancel()
         pacingTask?.cancel()
         pacingTask = nil
         viewModel?.stopClockTick()

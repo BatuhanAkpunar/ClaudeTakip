@@ -55,6 +55,8 @@ enum GroqClient: Sendable {
         """
 
     static func fetchMessage(context: String, language: String) async throws -> PacingMessage {
+        guard !GroqConstants.apiKey.isEmpty else { throw GroqError.invalidResponse }
+
         let languageInstruction: String
         switch language {
         case "tr": languageInstruction = "You MUST respond in Turkish."

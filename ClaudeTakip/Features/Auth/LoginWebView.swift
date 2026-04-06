@@ -23,8 +23,14 @@ struct LoginWebView: NSViewRepresentable {
         webView.navigationDelegate = context.coordinator
         webView.uiDelegate = context.coordinator
         webView.customUserAgent = "Mozilla/5.0 (Macintosh; Intel Mac OS X 14_5) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.5 Safari/605.1.15"
-        webView.load(URLRequest(url: URL(string: "https://claude.ai/login")!))
         context.coordinator.mainWebView = webView
+
+        // Clear stale claude.ai cookies, then load login page
+        context.coordinator.clearCookiesAndLoad(
+            webView: webView,
+            store: config.websiteDataStore.httpCookieStore
+        )
+
         return webView
     }
 
@@ -38,6 +44,7 @@ struct LoginWebView: NSViewRepresentable {
     final class Coordinator: NSObject, WKNavigationDelegate, WKUIDelegate {
         let onCookieExtracted: (String) -> Void
         private var isExtracted = false
+        private var cookiesCleared = false
         private var cookieCheckTimer: Timer?
         weak var mainWebView: WKWebView?
         private var popupWebView: WKWebView?
@@ -51,6 +58,21 @@ struct LoginWebView: NSViewRepresentable {
             cookieCheckTimer = nil
         }
 
+        /// Deletes all claude.ai cookies, then loads the login page.
+        func clearCookiesAndLoad(webView: WKWebView, store: WKHTTPCookieStore) {
+            store.getAllCookies { [weak self] cookies in
+                Task { @MainActor [weak self] in
+                    for cookie in cookies where cookie.domain.contains("claude.ai") {
+                        await store.delete(cookie)
+                    }
+                    self?.cookiesCleared = true
+                    if let url = URL(string: "https://claude.ai/login") {
+                        webView.load(URLRequest(url: url))
+                    }
+                }
+            }
+        }
+
         // MARK: - WKUIDelegate — Google OAuth popup
 
         func webView(
@@ -59,15 +81,12 @@ struct LoginWebView: NSViewRepresentable {
             for navigationAction: WKNavigationAction,
             windowFeatures: WKWindowFeatures
         ) -> WKWebView? {
-            // Create a real child WKWebView so Claude's JS sees a successful popup
             let popup = WKWebView(frame: webView.bounds, configuration: configuration)
             popup.navigationDelegate = self
             popup.uiDelegate = self
             popup.customUserAgent = webView.customUserAgent
             popup.autoresizingMask = [.width, .height]
 
-            // Replace the main WebView's content with the popup
-            // (swap views so popup renders in the same window)
             if let superview = webView.superview {
                 webView.removeFromSuperview()
                 superview.addSubview(popup)
@@ -77,7 +96,6 @@ struct LoginWebView: NSViewRepresentable {
             return popup
         }
 
-        // Handle popup close — restore main WebView
         func webViewDidClose(_ webView: WKWebView) {
             guard webView === popupWebView, let main = mainWebView else { return }
             if let superview = webView.superview {
@@ -87,12 +105,15 @@ struct LoginWebView: NSViewRepresentable {
                 main.autoresizingMask = [.width, .height]
             }
             popupWebView = nil
+
+            // After OAuth popup closes, check for cookie immediately
+            checkForSessionCookie(webView: main)
         }
 
         // MARK: - WKNavigationDelegate
 
         func webView(_ webView: WKWebView, didFinish navigation: WKNavigation!) {
-            guard !isExtracted else { return }
+            guard !isExtracted, cookiesCleared else { return }
             checkForSessionCookie(webView: webView)
             startPeriodicCheck(webView: webView)
 
@@ -106,16 +127,18 @@ struct LoginWebView: NSViewRepresentable {
         }
 
         func webView(_ webView: WKWebView, didReceiveServerRedirectForProvisionalNavigation navigation: WKNavigation!) {
-            guard !isExtracted else { return }
+            guard !isExtracted, cookiesCleared else { return }
             checkForSessionCookie(webView: webView)
         }
 
-        func webView(
+        nonisolated func webView(
             _ webView: WKWebView,
             decidePolicyFor navigationAction: WKNavigationAction,
-            decisionHandler: @escaping (WKNavigationActionPolicy) -> Void
+            decisionHandler: @escaping @MainActor @Sendable (WKNavigationActionPolicy) -> Void
         ) {
-            decisionHandler(.allow)
+            Task { @MainActor in
+                decisionHandler(.allow)
+            }
         }
 
         // MARK: - Private
@@ -128,8 +151,9 @@ struct LoginWebView: NSViewRepresentable {
                 main.frame = superview.bounds
                 main.autoresizingMask = [.width, .height]
             }
-            // Reload main to pick up the new session
-            main.load(URLRequest(url: URL(string: "https://claude.ai")!))
+            if let url = URL(string: "https://claude.ai") {
+                main.load(URLRequest(url: url))
+            }
             popupWebView = nil
         }
 
@@ -137,11 +161,10 @@ struct LoginWebView: NSViewRepresentable {
             guard cookieCheckTimer == nil else { return }
             cookieCheckTimer = Timer.scheduledTimer(withTimeInterval: 1.5, repeats: true) { [weak self] _ in
                 Task { @MainActor [weak self] in
-                    guard let self, !self.isExtracted else {
+                    guard let self, !self.isExtracted, self.cookiesCleared else {
                         self?.stopTimer()
                         return
                     }
-                    // Check cookies from both main and popup WebViews
                     let target = self.popupWebView ?? self.mainWebView
                     if let target { self.checkForSessionCookie(webView: target) }
                 }

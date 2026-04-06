@@ -81,6 +81,7 @@ final class AuthManager {
         appState.previousUsage = nil
         appState.aiPacingMessage = nil
         appState.isAIUnavailable = false
+        appState.isFetchingAIMessage = false
 
         // Connection / refresh
         appState.connectionStatus = .disconnected

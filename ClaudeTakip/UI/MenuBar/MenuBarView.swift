@@ -36,7 +36,7 @@ struct MenuBarView: View {
                         }
 
                         VStack(spacing: 8) {
-                            sectionTitle(String(localized: "USAGE LIMITS", bundle: .app)) { refreshButton }
+                            sectionTitle(String(localized: "USAGE LIMITS", bundle: .app))
                             donutCards
                             ThemedDivider()
                             sonnetBar
@@ -123,27 +123,24 @@ struct MenuBarView: View {
     private var headerBar: some View {
         HStack(alignment: .center, spacing: 0) {
             // Left: product name + account/financial row
-            VStack(alignment: .leading, spacing: 5) {
+            VStack(alignment: .leading, spacing: 6) {
                 Text("ClaudeTakip")
                     .font(.system(size: 13, weight: .bold, design: .rounded))
                     .foregroundStyle(.primary.opacity(0.7))
 
                 HStack(spacing: 0) {
                     if let name = viewModel.appState.accountName {
-                        HStack(spacing: 4) {
+                        HStack(spacing: 5) {
                             Text(name.truncatedBeforeApostropheS)
-                                .font(.system(size: 10.5, weight: .medium))
-                                .foregroundStyle(.primary.opacity(0.70))
+                                .font(.system(size: 11, weight: .semibold))
+                                .foregroundStyle(.primary.opacity(0.60))
                                 .lineLimit(1)
                                 .truncationMode(.tail)
-                            Button(action: { onSignOut() }) {
-                                BI.boxArrowRight.view(size: 9)
-                                    .foregroundStyle(.primary.opacity(0.70))
-                            }
-                            .buttonStyle(.plain)
-                            .fixedSize()
-                            .help(Text("Sign out", bundle: .app))
+                            BI.boxArrowRight.view(size: 10)
+                                .foregroundStyle(.primary.opacity(0.60))
                         }
+                        .onTapGesture { onSignOut() }
+                        .help(Text("Sign out", bundle: .app))
                     }
 
                     Spacer()
@@ -174,48 +171,65 @@ struct MenuBarView: View {
 
             Spacer(minLength: 12)
 
-            // Right: action icons, vertically centered with left VStack
-            HStack(spacing: 12) {
-                Button(action: { viewModel.openStatusPage() }) {
-                    statusCloudIcon
-                }
-                .buttonStyle(.plain)
-                .help(viewModel.statusTooltip)
-
-                Button(action: {
-                    withAnimation(.easeInOut(duration: 0.22)) {
-                        isInfoExpanded.toggle()
-                        isSettingsExpanded = false
+            // Right: action icons + refresh info
+            VStack(alignment: .trailing, spacing: 6) {
+                HStack(spacing: 12) {
+                    Button(action: { viewModel.openStatusPage() }) {
+                        statusCloudIcon
                     }
-                }) {
-                    Image(systemName: "info.circle")
-                        .font(.system(size: 14))
-                        .foregroundStyle(isInfoExpanded ? .primary : .tertiary)
-                }
-                .buttonStyle(.plain)
-                .help(Text("Info", bundle: .app))
+                    .buttonStyle(.plain)
+                    .help(viewModel.statusTooltip)
 
-                Button(action: {
-                    withAnimation(.easeInOut(duration: 0.22)) {
-                        isSettingsExpanded.toggle()
-                        isInfoExpanded = false
+                    Button(action: {
+                        withAnimation(.easeInOut(duration: 0.22)) {
+                            isInfoExpanded.toggle()
+                            isSettingsExpanded = false
+                        }
+                    }) {
+                        Image(systemName: "info.circle")
+                            .font(.system(size: 14))
+                            .foregroundStyle(isInfoExpanded ? .primary : .tertiary)
                     }
-                }) {
-                    Image(systemName: "gearshape.fill")
-                        .font(.system(size: 14))
-                        .foregroundStyle(isSettingsExpanded ? .primary : .tertiary)
-                }
-                .buttonStyle(.plain)
-                .help(Text("Settings", bundle: .app))
+                    .buttonStyle(.plain)
+                    .help(Text("Info", bundle: .app))
 
-                Button(action: { onQuit() }) {
-                    Image(systemName: "power")
-                        .font(.system(size: 13, weight: .medium))
-                        .foregroundStyle(isQuitHovered ? Color.red.opacity(0.8) : Color.secondary.opacity(0.6))
+                    Button(action: {
+                        withAnimation(.easeInOut(duration: 0.22)) {
+                            isSettingsExpanded.toggle()
+                            isInfoExpanded = false
+                        }
+                    }) {
+                        Image(systemName: "gearshape.fill")
+                            .font(.system(size: 14))
+                            .foregroundStyle(isSettingsExpanded ? .primary : .tertiary)
+                    }
+                    .buttonStyle(.plain)
+                    .help(Text("Settings", bundle: .app))
+
+                    Button(action: { onQuit() }) {
+                        Image(systemName: "power")
+                            .font(.system(size: 13, weight: .medium))
+                            .foregroundStyle(isQuitHovered ? Color.red.opacity(0.8) : Color.secondary.opacity(0.6))
+                    }
+                    .buttonStyle(.plain)
+                    .onHover { isQuitHovered = $0 }
+                    .help(Text("Quit", bundle: .app))
                 }
-                .buttonStyle(.plain)
-                .onHover { isQuitHovered = $0 }
-                .help(Text("Quit", bundle: .app))
+
+                HStack(spacing: 5) {
+                    BI.arrowClockwise.view(size: 10)
+                        .foregroundStyle(.primary.opacity(0.60))
+                        .rotationEffect(.degrees(isRefreshing ? 360 : 0))
+                    Text(viewModel.lastUpdateText)
+                        .font(.system(size: 11, weight: .semibold))
+                        .foregroundStyle(.primary.opacity(0.60))
+                }
+                .onTapGesture {
+                    withAnimation(DT.Animation.refreshSpin) { isRefreshing = true }
+                    onRefresh()
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.6) { isRefreshing = false }
+                }
+                .help(Text("Refresh", bundle: .app))
             }
         }
     }
@@ -230,32 +244,6 @@ struct MenuBarView: View {
                 .foregroundStyle(DT.Colors.claudeAccent.opacity(0.85))
             Spacer()
             trailing()
-        }
-    }
-
-    // MARK: - Refresh Button
-
-    private var refreshButton: some View {
-        HStack(spacing: 4) {
-            Text("Update:", bundle: .app)
-                .font(.system(size: 10, weight: .medium))
-                .foregroundStyle(.primary.opacity(0.70))
-
-            Button(action: {
-                withAnimation(DT.Animation.refreshSpin) { isRefreshing = true }
-                onRefresh()
-                DispatchQueue.main.asyncAfter(deadline: .now() + 0.6) { isRefreshing = false }
-            }) {
-                BI.arrowClockwise.view(size: 9)
-                    .foregroundStyle(.primary.opacity(0.70))
-                    .rotationEffect(.degrees(isRefreshing ? 360 : 0))
-            }
-            .buttonStyle(.plain)
-            .help(Text("Refresh", bundle: .app))
-
-            Text(viewModel.lastUpdateText)
-                .font(.system(size: 10, weight: .medium))
-                .foregroundStyle(.primary.opacity(0.70))
         }
     }
 
@@ -374,13 +362,15 @@ struct MenuBarView: View {
                         .animation(DT.Animation.barFill, value: rv(viewModel.sonnetBarProgress))
                 }
             }
-            .frame(height: 10)
-            .padding(.leading, 34)
+            .frame(height: 11)
+            .padding(.leading, 49)
 
             Text("\(Int(rv(viewModel.sonnetBarProgress) * 100))%")
                 .font(.system(size: 12, weight: .bold, design: .rounded))
                 .foregroundStyle(DT.Colors.sonnetPurple)
                 .frame(width: 30, alignment: .leading)
+
+            Spacer()
 
             // Hourglass + single-line time
             let lines = viewModel.sonnetResetLines
@@ -395,7 +385,6 @@ struct MenuBarView: View {
                         .lineLimit(1)
                 }
             }
-            .fixedSize(horizontal: true, vertical: false)
         }
         .padding(.vertical, 6)
     }
@@ -457,7 +446,7 @@ struct MenuBarView: View {
                 .padding(.horizontal, 8)
                 .padding(.vertical, 3)
                 .background(unlimitedBlue.opacity(0.10), in: Capsule())
-                .padding(.leading, 34)
+                .padding(.leading, 49)
                 Spacer()
             } else {
                 GeometryReader { geo in
@@ -475,14 +464,16 @@ struct MenuBarView: View {
                         }
                     }
                 }
-                .frame(height: 10)
-                .padding(.leading, 34)
+                .frame(height: 11)
+                .padding(.leading, 49)
 
                 Text("\(Int(rv(viewModel.extraUsageProgress) * 100))%")
                     .font(.system(size: 12, weight: .bold, design: .rounded))
                     .foregroundStyle(DT.Colors.claudeAccent)
                     .frame(width: 30, alignment: .leading)
             }
+
+            Spacer()
 
             // Hourglass + single-line time
             let lines = viewModel.extraResetLines
@@ -497,7 +488,6 @@ struct MenuBarView: View {
                         .lineLimit(1)
                 }
             }
-            .fixedSize(horizontal: true, vertical: false)
         }
         .padding(.vertical, 6)
     }
@@ -539,6 +529,7 @@ struct MenuBarView: View {
         let strategy = viewModel.paceStrategy
         let accent = viewModel.paceStatusColor
         let unavailable = viewModel.appState.isAIUnavailable && viewModel.appState.aiPacingMessage == nil
+        let isFetching = viewModel.appState.isFetchingAIMessage
         return Group {
             if unavailable {
                 HStack(spacing: 6) {
@@ -560,14 +551,40 @@ struct MenuBarView: View {
                     RoundedRectangle(cornerRadius: DT.Radius.card)
                         .strokeBorder(Color.primary.opacity(0.06), lineWidth: 1)
                 )
+            } else if isFetching && viewModel.appState.aiPacingMessage == nil {
+                HStack(spacing: 8) {
+                    ProgressView()
+                        .controlSize(.small)
+                    Text("Analyzing your usage…", bundle: .app)
+                        .font(.system(size: 11.5, weight: .medium))
+                        .foregroundStyle(.secondary.opacity(0.7))
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .padding(.horizontal, 12)
+                .padding(.vertical, 10)
+                .background(
+                    RoundedRectangle(cornerRadius: DT.Radius.card)
+                        .fill(accent.opacity(0.06))
+                )
+                .overlay(
+                    RoundedRectangle(cornerRadius: DT.Radius.card)
+                        .strokeBorder(accent.opacity(0.15), lineWidth: 1)
+                )
             } else if !strategy.isEmpty {
                 Text(strategy)
                     .font(.system(size: 12.5, weight: .semibold))
-                    .foregroundStyle(.primary.opacity(0.90))
+                    .foregroundStyle(.primary.opacity(isFetching ? 0.50 : 0.90))
                     .lineLimit(4)
                     .fixedSize(horizontal: false, vertical: true)
                     .frame(maxWidth: .infinity, alignment: .leading)
                     .padding(12)
+                    .overlay(alignment: .topTrailing) {
+                        if isFetching {
+                            ProgressView()
+                                .controlSize(.mini)
+                                .padding(8)
+                        }
+                    }
                     .overlay(alignment: .bottomTrailing) {
                         Image(systemName: "sparkles")
                             .font(.system(size: 38, weight: .bold))
@@ -599,6 +616,7 @@ struct MenuBarView: View {
                 .clipShape(RoundedRectangle(cornerRadius: DT.Radius.card))
             }
         }
+        .animation(.easeInOut(duration: 0.3), value: isFetching)
     }
 
     // MARK: - Chart Section
@@ -657,29 +675,31 @@ struct MenuBarView: View {
     }
 
     private var chartTabPicker: some View {
-        let activeColor = Color.primary.opacity(0.7)
+        let activeColor = Color.primary.opacity(0.85)
         let inactiveColor = Color.primary.opacity(0.4)
-        let activeBg = DT.Colors.claudeAccent.opacity(0.15)
+        let activeBg = DT.Colors.claudeAccent.opacity(0.18)
 
-        return HStack(spacing: 2) {
+        return HStack(spacing: 3) {
             ForEach(ChartTab.allCases, id: \.self) { tab in
                 let isSelected = selectedChartTab == tab
                 Button(action: { selectedChartTab = tab }) {
                     Text(tab == .session ? String(localized: "Current Session", bundle: .app) : String(localized: "Weekly", bundle: .app))
-                        .font(.system(size: 11.5, weight: isSelected ? .semibold : .medium))
+                        .font(.system(size: 10.5, weight: isSelected ? .bold : .medium))
+                        .tracking(isSelected ? 0.3 : 0)
                         .foregroundStyle(isSelected ? activeColor : inactiveColor)
-                        .padding(.horizontal, 8)
-                        .padding(.vertical, 0)
+                        .padding(.horizontal, 10)
+                        .padding(.vertical, 5)
                         .background(
                             isSelected ? activeBg : Color.clear,
-                            in: RoundedRectangle(cornerRadius: 5)
+                            in: Capsule()
                         )
+                        .contentShape(Capsule())
                 }
                 .buttonStyle(.plain)
             }
         }
-        .padding(2)
-        .background(RoundedRectangle(cornerRadius: 6).fill(Color.primary.opacity(0.04)))
+        .padding(3)
+        .background(Capsule().fill(Color.primary.opacity(0.04)))
     }
 
     // MARK: - Settings Panel
@@ -881,10 +901,20 @@ struct MenuBarView: View {
 
             infoDivider
 
-            HStack {
-                Text("Update", bundle: .app)
-                    .font(.system(size: 12, weight: .medium))
-                    .foregroundStyle(.primary.opacity(0.65))
+            HStack(spacing: 10) {
+                Image(systemName: "curlybraces")
+                    .font(.system(size: 13, weight: .medium))
+                    .foregroundStyle(.primary.opacity(0.55))
+                    .frame(width: 24, alignment: .center)
+
+                VStack(alignment: .leading, spacing: 3) {
+                    Text("Update", bundle: .app)
+                        .font(.system(size: 12, weight: .semibold))
+                        .foregroundStyle(.primary.opacity(0.85))
+                    Text("Check for updates", bundle: .app)
+                        .font(.system(size: 11, weight: .medium))
+                        .foregroundStyle(.primary.opacity(0.50))
+                }
 
                 Spacer(minLength: 4)
 
@@ -892,7 +922,7 @@ struct MenuBarView: View {
                     guard !isCheckingUpdate else { return }
                     isCheckingUpdate = true
                     onCheckUpdate?()
-                    DispatchQueue.main.asyncAfter(deadline: .now() + 3) {
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 10) {
                         isCheckingUpdate = false
                     }
                 }) {
@@ -900,15 +930,15 @@ struct MenuBarView: View {
                         if isCheckingUpdate {
                             ProgressView()
                                 .controlSize(.small)
-                                .frame(width: 12, height: 12)
+                                .frame(width: 14, height: 14)
                         } else {
                             Text("Check", bundle: .app)
-                                .font(.system(size: 11, weight: .medium))
+                                .font(.system(size: 11, weight: .semibold))
                         }
                     }
                     .foregroundStyle(DT.Colors.claudeAccent)
-                    .padding(.horizontal, 8)
-                    .padding(.vertical, 4)
+                    .padding(.horizontal, 10)
+                    .padding(.vertical, 5)
                     .background(DT.Colors.claudeAccent.opacity(0.12), in: Capsule())
                 }
                 .buttonStyle(.plain)
