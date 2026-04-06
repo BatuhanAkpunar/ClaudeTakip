@@ -61,24 +61,50 @@ final class AutoSessionService {
     }
 
     private func checkAndStartSession() async {
-        guard notesManager.settings.autoSession else { return }
+        let autoEnabled = notesManager.settings.autoSession
+        let resetDesc = appState.sessionResetDate?.description ?? "nil"
+        let loaded = appState.hasLoadedUsage
+        logger.debug("[AutoSession] check: autoSession=\(autoEnabled), resetDate=\(resetDesc), hasLoaded=\(loaded)")
+
+        guard notesManager.settings.autoSession else {
+            logger.debug("[AutoSession] skip: autoSession disabled")
+            return
+        }
 
         // Trigger if: reset date expired OR no active session at all (nil after data loaded)
         if let resetDate = appState.sessionResetDate {
-            guard Date() > resetDate else { return }
+            guard Date() > resetDate else {
+                logger.debug("[AutoSession] skip: session still active (resets in \(Int(resetDate.timeIntervalSince(Date())))s)")
+                return
+            }
         } else {
-            guard appState.hasLoadedUsage else { return }
+            guard appState.hasLoadedUsage else {
+                logger.debug("[AutoSession] skip: no reset date and usage not loaded yet")
+                return
+            }
         }
 
         // Cooldown: don't retry more than once per 3 minutes
-        if let last = lastAttemptDate, Date().timeIntervalSince(last) < 180 { return }
+        if let last = lastAttemptDate, Date().timeIntervalSince(last) < 180 {
+            logger.debug("[AutoSession] skip: cooldown (\(Int(180 - Date().timeIntervalSince(last)))s remaining)")
+            return
+        }
 
+        logger.debug("[AutoSession] waiting \(Int(TimingConstants.autoSessionDelay))s before starting...")
         try? await Task.sleep(for: .seconds(TimingConstants.autoSessionDelay))
 
         // Re-check after delay (user may have disabled or session already refreshed)
-        guard notesManager.settings.autoSession else { return }
+        guard notesManager.settings.autoSession else {
+            logger.debug("[AutoSession] skip after delay: autoSession disabled")
+            return
+        }
         // If session is active and not expired, no need to start
-        if let currentReset = appState.sessionResetDate, currentReset > Date() { return }
+        if let currentReset = appState.sessionResetDate, currentReset > Date() {
+            logger.debug("[AutoSession] skip after delay: session now active (resets in \(Int(currentReset.timeIntervalSince(Date())))s)")
+            return
+        }
+
+        logger.debug("[AutoSession] proceeding to start session...")
 
         guard let sessionKey = authManager.getSessionKey(),
               let orgId = appState.organizationId else { return }
