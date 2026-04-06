@@ -10,6 +10,7 @@ final class AutoSessionService {
     private let notesManager: NotesManager
     private var scheduledTask: Task<Void, Never>?
     private var scheduledResetDate: Date?
+    var onSessionStarted: (() async -> Void)?
 
     init(appState: AppState, authManager: AuthManager, notesManager: NotesManager) {
         self.appState = appState
@@ -109,10 +110,12 @@ final class AutoSessionService {
         }
 
         var convId: String?
+        var success = false
         do {
             convId = try await createConversation(sessionKey: sessionKey, orgId: orgId)
             guard let id = convId else { throw AutoSessionError.createFailed }
             try await sendMessage(sessionKey: sessionKey, orgId: orgId, convId: id, model: "claude-3-5-haiku-20241022")
+            success = true
             logger.debug("[AutoSession] New session started successfully")
         } catch {
             logger.debug("[AutoSession] Failed: \(type(of: error))")
@@ -124,6 +127,11 @@ final class AutoSessionService {
 
         // Clear scheduled state so next resetDate change re-schedules
         scheduledResetDate = nil
+
+        // Fetch fresh usage to get new resetDate and prevent duplicate triggers
+        if success {
+            await onSessionStarted?()
+        }
     }
 
     // MARK: - API Calls

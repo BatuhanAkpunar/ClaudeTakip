@@ -187,6 +187,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         usageService.onSessionExpired = { [weak self] in
             self?.handleSessionExpired()
         }
+        autoSessionService.onSessionStarted = { [weak self] in
+            await self?.usageService.fetchUsage()
+            self?.autoSessionService.scheduleIfNeeded()
+        }
 
         // Independent services start immediately
         statusService.startPolling()
