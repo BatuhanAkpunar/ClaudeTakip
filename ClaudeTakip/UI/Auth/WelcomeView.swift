@@ -1,5 +1,19 @@
 import SwiftUI
 
+private struct QuitButton: View {
+    @State private var isHovered = false
+
+    var body: some View {
+        Button(action: { NSApp.terminate(nil) }) {
+            Image(systemName: "power")
+                .font(.system(size: 15, weight: .medium))
+                .foregroundStyle(isHovered ? Color.red.opacity(0.8) : Color.secondary.opacity(0.45))
+        }
+        .buttonStyle(.plain)
+        .onHover { isHovered = $0 }
+    }
+}
+
 struct WelcomeView: View {
     let onSignIn: () -> Void
 
@@ -49,16 +63,12 @@ struct WelcomeView: View {
 
             Spacer()
         }
-        .overlay(alignment: .bottomTrailing) {
-            Button(action: { NSApp.terminate(nil) }) {
-                Image(systemName: "power")
-                    .font(.system(size: 14, weight: .medium))
-                    .foregroundStyle(.secondary.opacity(0.5))
-            }
-            .buttonStyle(.plain)
-            .padding(12)
-        }
         .frame(width: DT.Size.popoverWidth, height: 300)
+        .overlay(alignment: .topTrailing) {
+            QuitButton()
+                .padding(.top, 14)
+                .padding(.trailing, 14)
+        }
         .popoverBG()
     }
 }
