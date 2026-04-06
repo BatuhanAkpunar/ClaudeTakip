@@ -190,7 +190,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
         // Independent services start immediately
         statusService.startPolling()
-        autoSessionService.startMonitoring()
 
         // Load cache histories + start polling timer
         usageService.startPolling()
@@ -203,7 +202,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             await usageService.fetchUsage()
             guard !Task.isCancelled else { return }
 
-            // 2. Calculate pacing immediately
+            // 2. Schedule auto-session based on fresh reset date
+            autoSessionService.scheduleIfNeeded()
+
+            // 3. Calculate pacing immediately
             performImmediatePacing()
 
             // 3. Get Groq message (wait max 8s)
@@ -286,10 +288,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                     if !lastResetFetchTriggered {
                         lastResetFetchTriggered = true
                         await usageService.fetchUsage()
+                        autoSessionService.scheduleIfNeeded()
                         continue
                     }
                 } else {
                     lastResetFetchTriggered = false
+                    autoSessionService.scheduleIfNeeded()
                 }
 
                 let currentUsage = appState.sessionUsage
