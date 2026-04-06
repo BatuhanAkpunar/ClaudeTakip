@@ -284,7 +284,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private func startPacingObservation() {
         pacingTask?.cancel()
         pacingTask = Task { @MainActor [weak self] in
-            var lastResetFetchTriggered = false
+            var lastResetFetchDate: Date?
             while !Task.isCancelled {
                 try? await Task.sleep(for: .seconds(5))
                 guard let self else { return }
@@ -292,14 +292,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
                 // Fetch new data immediately when reset time passes
                 if let resetDate = appState.sessionResetDate, resetDate < Date() {
-                    if !lastResetFetchTriggered {
-                        lastResetFetchTriggered = true
+                    let alreadyFetched = lastResetFetchDate.map { abs($0.timeIntervalSince(resetDate)) < 1 } ?? false
+                    if !alreadyFetched {
+                        lastResetFetchDate = resetDate
                         await usageService.fetchUsage()
                         autoSessionService.scheduleIfNeeded()
                         continue
                     }
                 } else {
-                    lastResetFetchTriggered = false
+                    lastResetFetchDate = nil
                     autoSessionService.scheduleIfNeeded()
                 }
 

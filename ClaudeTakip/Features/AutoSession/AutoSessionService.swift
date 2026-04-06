@@ -27,14 +27,17 @@ final class AutoSessionService {
         guard let resetDate = appState.sessionResetDate, resetDate > Date() else {
             // No future reset date — check if session is already expired
             if appState.hasLoadedUsage, appState.sessionResetDate == nil || (appState.sessionResetDate ?? .distantFuture) < Date() {
-                // Session expired or no active session — try to start now
+                // Only schedule if not already scheduled for expired state
+                guard scheduledResetDate == nil else { return }
+                logger.debug("[AutoSession] Session expired, scheduling start in 5s")
                 scheduleStart(after: 5)
+                scheduledResetDate = .distantPast // Mark as scheduled for expired state
             }
             return
         }
 
-        // Already scheduled for this exact reset date
-        if scheduledResetDate == resetDate { return }
+        // Already scheduled for this reset date (1s tolerance for API timestamp variations)
+        if let scheduled = scheduledResetDate, abs(scheduled.timeIntervalSince(resetDate)) < 1 { return }
 
         // Schedule for when the session expires + small buffer
         let delay = resetDate.timeIntervalSince(Date()) + 5
@@ -128,9 +131,14 @@ final class AutoSessionService {
         // Clear scheduled state so next resetDate change re-schedules
         scheduledResetDate = nil
 
-        // Fetch fresh usage to get new resetDate and prevent duplicate triggers
         if success {
+            // Fetch fresh usage to get new resetDate
             await onSessionStarted?()
+        } else {
+            // Retry after 60 seconds on failure
+            logger.debug("[AutoSession] Will retry in 60s")
+            scheduleStart(after: 60)
+            scheduledResetDate = .distantPast
         }
     }
 
