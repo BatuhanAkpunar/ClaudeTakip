@@ -24,7 +24,7 @@ xcodebuild -project ClaudeTakip.xcodeproj -scheme ClaudeTakip -configuration Deb
 - **AppDelegate** — central coordinator, owns all managers and services
 - **AppState** — `@Observable` single source of truth for all UI state
 - **AuthManager** — WKWebView cookie extraction from claude.ai, Google OAuth support
-- **UsageService** — polls claude.ai API every 3 minutes, caches to disk
+- **UsageService** — polls claude.ai API every 3 minutes, caches to disk; fetches account profile from `/api/account` (email, display name) and org details from `/api/organizations`
 - **UsageCacheStore** — per-user (orgId-scoped) file-based cache in Application Support
 - **PacingEngine** — deviation-based velocity tracking with 6 severity levels
 - **PacingMessageService** — AI-powered recommendations via Groq API (llama-4-scout)
@@ -38,7 +38,7 @@ xcodebuild -project ClaudeTakip.xcodeproj -scheme ClaudeTakip -configuration Deb
 - **No macOS Keychain** — file-based credential storage avoids code-signature ACL prompts with ad-hoc signing
 - **Per-user data isolation** — cache files scoped by orgId to prevent data leakage between accounts
 - **First-launch defaults** — detects OS dark mode and language, saves explicitly
-- **Groq debounce** — 30s debounce on state changes, 1h cache window, max 5 consecutive errors before blocking
+- **Groq debounce** — 30s debounce on state changes, 1h cache window, max 5 consecutive errors before blocking; skips API calls when AI Recommendation setting is disabled
 
 ## Code Conventions
 
