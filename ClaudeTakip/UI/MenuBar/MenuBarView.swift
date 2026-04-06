@@ -14,6 +14,7 @@ struct MenuBarView: View {
     @State private var isQuitHovered = false
     @State private var isSettingsExpanded = false
     @State private var isInfoExpanded = false
+    @State private var isAccountExpanded = false
     @State private var selectedChartTab: ChartTab = .session
     @State private var isChartExpanded = true
     @State private var valuesRevealed = false
@@ -60,7 +61,7 @@ struct MenuBarView: View {
                 }
                 .scrollIndicators(.hidden)
                 .clipped()
-                .opacity(isSettingsExpanded || isInfoExpanded ? 0 : 1)
+                .opacity(isSettingsExpanded || isInfoExpanded || isAccountExpanded ? 0 : 1)
 
                 if isSettingsExpanded {
                     settingsPanel
@@ -71,6 +72,13 @@ struct MenuBarView: View {
 
                 if isInfoExpanded {
                     infoPanel
+                        .padding(.horizontal, 16)
+                        .padding(.vertical, 14)
+                        .transition(.opacity)
+                }
+
+                if isAccountExpanded {
+                    accountPanel
                         .padding(.horizontal, 16)
                         .padding(.vertical, 14)
                         .transition(.opacity)
@@ -91,6 +99,7 @@ struct MenuBarView: View {
         .onAppear {
             isSettingsExpanded = false
             isInfoExpanded = false
+            isAccountExpanded = false
             valuesRevealed = false
             waitForDataThenReveal()
         }
@@ -121,115 +130,91 @@ struct MenuBarView: View {
     // MARK: - Header Bar (Product header)
 
     private var headerBar: some View {
-        HStack(alignment: .center, spacing: 0) {
-            // Left: product name + account/financial row
-            VStack(alignment: .leading, spacing: 6) {
+        HStack(spacing: 0) {
+            // Logo + name + last update
+            HStack(spacing: 6) {
+                Image("ClaudeLogo")
+                    .renderingMode(.original)
+                    .resizable()
+                    .aspectRatio(contentMode: .fit)
+                    .frame(width: 20, height: 20)
+
                 Text("ClaudeTakip")
                     .font(.system(size: 13, weight: .bold, design: .rounded))
-                    .foregroundStyle(.primary.opacity(0.7))
+                    .foregroundStyle(.primary.opacity(0.70))
 
-                HStack(spacing: 0) {
-                    if let name = viewModel.appState.accountName {
-                        HStack(spacing: 5) {
-                            Text(name.truncatedBeforeApostropheS)
-                                .font(.system(size: 11, weight: .semibold))
-                                .foregroundStyle(.primary.opacity(0.60))
-                                .lineLimit(1)
-                                .truncationMode(.tail)
-                            BI.boxArrowRight.view(size: 10)
-                                .foregroundStyle(.primary.opacity(0.60))
-                        }
-                        .onTapGesture { onSignOut() }
-                        .help(Text("Sign out", bundle: .app))
-                    }
+                Text("·")
+                    .foregroundStyle(.primary.opacity(0.30))
 
-                    Spacer()
-
-                    HStack(spacing: 8) {
-                        if let balanceText = viewModel.extraCurrentBalanceText {
-                            HStack(spacing: 3) {
-                                Image(systemName: "wallet.bifold.fill")
-                                    .font(.system(size: 8))
-                                Text(balanceText)
-                                    .font(.system(size: 9, weight: .semibold, design: .monospaced))
-                            }
-                            .foregroundStyle(.primary.opacity(0.70))
-                        }
-
-                        if let autoReload = viewModel.extraAutoReload {
-                            HStack(spacing: 3) {
-                                Image(systemName: "arrow.clockwise")
-                                    .font(.system(size: 7.5, weight: .medium))
-                                Text(autoReload ? String(localized: "Automatic", bundle: .app) : String(localized: "Manual", bundle: .app))
-                                    .font(.system(size: 9, weight: .medium))
-                            }
-                            .foregroundStyle(.primary.opacity(0.70))
-                        }
-                    }
-                }
-            }
-
-            Spacer(minLength: 12)
-
-            // Right: action icons + refresh info
-            VStack(alignment: .trailing, spacing: 6) {
-                HStack(spacing: 12) {
-                    Button(action: { viewModel.openStatusPage() }) {
-                        statusCloudIcon
-                    }
-                    .buttonStyle(.plain)
-                    .help(viewModel.statusTooltip)
-
-                    Button(action: {
-                        withAnimation(.easeInOut(duration: 0.22)) {
-                            isInfoExpanded.toggle()
-                            isSettingsExpanded = false
-                        }
-                    }) {
-                        Image(systemName: "info.circle")
-                            .font(.system(size: 14))
-                            .foregroundStyle(isInfoExpanded ? .primary : .tertiary)
-                    }
-                    .buttonStyle(.plain)
-                    .help(Text("Info", bundle: .app))
-
-                    Button(action: {
-                        withAnimation(.easeInOut(duration: 0.22)) {
-                            isSettingsExpanded.toggle()
-                            isInfoExpanded = false
-                        }
-                    }) {
-                        Image(systemName: "gearshape.fill")
-                            .font(.system(size: 14))
-                            .foregroundStyle(isSettingsExpanded ? .primary : .tertiary)
-                    }
-                    .buttonStyle(.plain)
-                    .help(Text("Settings", bundle: .app))
-
-                    Button(action: { onQuit() }) {
-                        Image(systemName: "power")
-                            .font(.system(size: 13, weight: .medium))
-                            .foregroundStyle(isQuitHovered ? Color.red.opacity(0.8) : Color.secondary.opacity(0.6))
-                    }
-                    .buttonStyle(.plain)
-                    .onHover { isQuitHovered = $0 }
-                    .help(Text("Quit", bundle: .app))
-                }
-
-                HStack(spacing: 5) {
-                    BI.arrowClockwise.view(size: 10)
-                        .foregroundStyle(.primary.opacity(0.60))
+                HStack(spacing: 4) {
+                    BI.arrowClockwise.view(size: 9)
                         .rotationEffect(.degrees(isRefreshing ? 360 : 0))
                     Text(viewModel.lastUpdateText)
-                        .font(.system(size: 11, weight: .semibold))
-                        .foregroundStyle(.primary.opacity(0.60))
+                        .font(.system(size: 10, weight: .medium))
                 }
+                .foregroundStyle(.primary.opacity(0.45))
                 .onTapGesture {
                     withAnimation(DT.Animation.refreshSpin) { isRefreshing = true }
                     onRefresh()
                     DispatchQueue.main.asyncAfter(deadline: .now() + 0.6) { isRefreshing = false }
                 }
-                .help(Text("Refresh", bundle: .app))
+            }
+
+            Spacer(minLength: 8)
+
+            // Action icons — single row, no tooltips
+            HStack(spacing: 11) {
+                Button(action: { viewModel.openStatusPage() }) {
+                    statusCloudIcon
+                }
+                .buttonStyle(.plain)
+
+                Button(action: {
+                    withAnimation(.easeInOut(duration: 0.22)) {
+                        isAccountExpanded.toggle()
+                        isInfoExpanded = false
+                        isSettingsExpanded = false
+                    }
+                }) {
+                    Image(systemName: "person.crop.circle")
+                        .font(.system(size: 15))
+                        .foregroundStyle(isAccountExpanded ? .primary : .tertiary)
+                }
+                .buttonStyle(.plain)
+
+                Button(action: {
+                    withAnimation(.easeInOut(duration: 0.22)) {
+                        isInfoExpanded.toggle()
+                        isSettingsExpanded = false
+                        isAccountExpanded = false
+                    }
+                }) {
+                    Image(systemName: "info.circle")
+                        .font(.system(size: 15))
+                        .foregroundStyle(isInfoExpanded ? .primary : .tertiary)
+                }
+                .buttonStyle(.plain)
+
+                Button(action: {
+                    withAnimation(.easeInOut(duration: 0.22)) {
+                        isSettingsExpanded.toggle()
+                        isInfoExpanded = false
+                        isAccountExpanded = false
+                    }
+                }) {
+                    Image(systemName: "gearshape.fill")
+                        .font(.system(size: 15))
+                        .foregroundStyle(isSettingsExpanded ? .primary : .tertiary)
+                }
+                .buttonStyle(.plain)
+
+                Button(action: { onQuit() }) {
+                    Image(systemName: "power")
+                        .font(.system(size: 14, weight: .medium))
+                        .foregroundStyle(isQuitHovered ? Color.red.opacity(0.8) : Color.secondary.opacity(0.5))
+                }
+                .buttonStyle(.plain)
+                .onHover { isQuitHovered = $0 }
             }
         }
     }
@@ -551,7 +536,7 @@ struct MenuBarView: View {
                     RoundedRectangle(cornerRadius: DT.Radius.card)
                         .strokeBorder(Color.primary.opacity(0.06), lineWidth: 1)
                 )
-            } else if isFetching && viewModel.appState.aiPacingMessage == nil {
+            } else if viewModel.appState.aiPacingMessage == nil {
                 HStack(spacing: 8) {
                     ProgressView()
                         .controlSize(.small)
@@ -948,6 +933,168 @@ struct MenuBarView: View {
             .padding(.vertical, 11)
         }
         .glassCard()
+    }
+
+    // MARK: - Account Panel
+
+    private var accountPanel: some View {
+        VStack(spacing: 0) {
+            // Centered header
+            VStack(spacing: 8) {
+                Image(systemName: "person.crop.circle.fill")
+                    .font(.system(size: 40))
+                    .foregroundStyle(DT.Colors.claudeAccent.opacity(0.55))
+
+                VStack(spacing: 4) {
+                    let displayName = viewModel.appState.accountDisplayName
+                        ?? viewModel.appState.accountName?.truncatedBeforeApostropheS
+                    if let name = displayName {
+                        Text(name)
+                            .font(.system(size: 14, weight: .bold, design: .rounded))
+                            .foregroundStyle(.primary.opacity(0.85))
+                            .lineLimit(1)
+                    }
+
+                    if let email = viewModel.appState.accountEmail {
+                        Text(email)
+                            .font(.system(size: 11, weight: .medium))
+                            .foregroundStyle(.primary.opacity(0.45))
+                            .lineLimit(1)
+                    }
+
+                    Text(viewModel.accountPlanDisplayName)
+                        .font(.system(size: 10.5, weight: .bold))
+                        .tracking(0.5)
+                        .foregroundStyle(DT.Colors.claudeAccent)
+                        .padding(.horizontal, 10)
+                        .padding(.vertical, 3)
+                        .background(DT.Colors.claudeAccent.opacity(0.12), in: Capsule())
+                }
+            }
+            .frame(maxWidth: .infinity)
+            .padding(.vertical, 14)
+
+            ThemedDivider()
+
+            // Subscription
+            if let billing = viewModel.accountBillingDisplayText {
+                accountRow(
+                    icon: "checkmark.seal.fill",
+                    title: String(localized: "Subscription", bundle: .app),
+                    desc: String(localized: "Billing status", bundle: .app),
+                    value: billing,
+                    valueColor: DT.Colors.statusGreen
+                )
+                accountDivider
+            }
+
+            // Member since
+            if let memberSince = viewModel.accountMemberSinceText {
+                accountRow(
+                    icon: "calendar",
+                    title: String(localized: "Member Since", bundle: .app),
+                    desc: String(localized: "Account creation date", bundle: .app),
+                    value: memberSince
+                )
+                accountDivider
+            }
+
+            // Extra usage
+            accountRow(
+                icon: "bolt.fill",
+                title: String(localized: "Extra Usage", bundle: .app),
+                desc: String(localized: "Overage billing", bundle: .app),
+                value: viewModel.accountExtraUsageStatusText,
+                valueColor: viewModel.appState.extraUsage?.isEnabled == true
+                    ? DT.Colors.statusGreen : .primary.opacity(0.50)
+            )
+
+            // Spending this month
+            if let spendingText = viewModel.accountSpendingText {
+                accountDivider
+                accountRow(
+                    icon: "creditcard.fill",
+                    title: String(localized: "Spent This Month", bundle: .app),
+                    desc: String(localized: "Extra credits used", bundle: .app),
+                    value: spendingText
+                )
+            }
+
+            // Spending cap
+            if let capText = viewModel.accountSpendingCapText {
+                accountDivider
+                accountRow(
+                    icon: "shield.fill",
+                    title: String(localized: "Spending Cap", bundle: .app),
+                    desc: String(localized: "Monthly limit", bundle: .app),
+                    value: capText
+                )
+            }
+
+            accountDivider
+
+            // Sign out
+            Button(action: { onSignOut() }) {
+                HStack(spacing: 10) {
+                    Image(systemName: "rectangle.portrait.and.arrow.right")
+                        .font(.system(size: 13, weight: .medium))
+                        .foregroundStyle(.red.opacity(0.55))
+                        .frame(width: 24, alignment: .center)
+
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("Sign Out", bundle: .app)
+                            .font(.system(size: 12, weight: .semibold))
+                            .foregroundStyle(.red.opacity(0.80))
+                        Text("Stop tracking usage", bundle: .app)
+                            .font(.system(size: 11, weight: .medium))
+                            .foregroundStyle(.red.opacity(0.40))
+                    }
+
+                    Spacer()
+                }
+                .padding(.horizontal, 14)
+                .padding(.vertical, 11)
+            }
+            .buttonStyle(.plain)
+        }
+        .glassCard()
+    }
+
+    private var accountDivider: some View {
+        ThemedDivider().padding(.leading, 44)
+    }
+
+    private func accountRow(
+        icon: String,
+        title: String,
+        desc: String,
+        value: String,
+        valueColor: Color = .primary.opacity(0.80)
+    ) -> some View {
+        HStack(spacing: 10) {
+            Image(systemName: icon)
+                .font(.system(size: 13, weight: .medium))
+                .foregroundStyle(.primary.opacity(0.55))
+                .frame(width: 24, alignment: .center)
+
+            VStack(alignment: .leading, spacing: 2) {
+                Text(title)
+                    .font(.system(size: 12, weight: .semibold))
+                    .foregroundStyle(.primary.opacity(0.85))
+                Text(desc)
+                    .font(.system(size: 10.5, weight: .medium))
+                    .foregroundStyle(.primary.opacity(0.40))
+            }
+
+            Spacer(minLength: 4)
+
+            Text(value)
+                .font(.system(size: 12, weight: .semibold))
+                .foregroundStyle(valueColor)
+                .lineLimit(1)
+        }
+        .padding(.horizontal, 14)
+        .padding(.vertical, 10)
     }
 
     private var infoDivider: some View {

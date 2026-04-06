@@ -12,6 +12,7 @@ enum APIConstants {
     static func completionPath(orgId: String, convId: String) -> String {
         "/api/organizations/\(orgId)/chat_conversations/\(convId)/completion"
     }
+    static let accountPath = "/api/account"
     static let statusURL = "https://status.claude.com/api/v2/status.json"
     static let statusWebURL = "https://status.claude.com"
 }
@@ -69,4 +70,5 @@ enum KeychainConstants {
     static let orgIdAccount = "organizationId"
     static let accountNameAccount = "accountName"
     static let planNameAccount = "planName"
+    static let accountDetailsAccount = "accountDetails"
 }

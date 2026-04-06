@@ -52,6 +52,16 @@ final class AppState {
     var accountName: String?
     var planName: String?
 
+    // Account details (from organizations API)
+    var billingType: String?
+    var rateLimitTier: String?
+    var capabilities: [String] = []
+    var memberSince: Date?
+    var freeCreditsStatus: String?
+    var dataRetention: String?
+    var accountEmail: String?
+    var accountDisplayName: String?
+
     // Session (5-hour)
     var sessionUsage: Double = 0
     var sessionRemaining: Double = 1.0

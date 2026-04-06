@@ -92,7 +92,7 @@ final class PacingMessageService {
     // MARK: - Initial Fetch
 
     func fetchInitialMessage(timeout: TimeInterval = 8) async {
-        guard !isUsageEmpty else { return }
+        guard notesManager.settings.aiRecommendation, !isUsageEmpty else { return }
 
         inFlightTask?.cancel()
         appState.isFetchingAIMessage = true
@@ -124,6 +124,7 @@ final class PacingMessageService {
     // MARK: - Fetch
 
     private func fetchNow(reason: String) {
+        guard notesManager.settings.aiRecommendation else { return }
         guard consecutiveErrors < GroqConstants.maxConsecutiveErrors else {
             appState.isAIUnavailable = true
             return

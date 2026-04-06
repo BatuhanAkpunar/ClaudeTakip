@@ -51,6 +51,73 @@ final class UsageService {
         await fetchUsage()
     }
 
+    /// Fetch organizations data and update account details in AppState
+    func fetchAccountDetails() async {
+        guard let sessionKey = authManager.getSessionKey() else { return }
+        let urlString = APIConstants.baseURL + APIConstants.organizationsPath
+        guard let url = URL(string: urlString) else { return }
+
+        var request = URLRequest(url: url)
+        request.setValue("sessionKey=\(sessionKey)", forHTTPHeaderField: "Cookie")
+        request.timeoutInterval = 15
+
+        guard let (data, response) = try? await URLSession.shared.data(for: request),
+              let http = response as? HTTPURLResponse, http.statusCode == 200 else { return }
+
+        guard let json = try? JSONSerialization.jsonObject(with: data) as? [[String: Any]],
+              let org = json.first else { return }
+
+        let billingType = org["billing_type"] as? String
+        let rateLimitTier = org["rate_limit_tier"] as? String
+        let capabilities = org["capabilities"] as? [String] ?? []
+        let freeCreditsStatus = org["free_credits_status"] as? String
+
+        var createdAt: Date?
+        if let dateStr = org["created_at"] as? String {
+            let formatter = ISO8601DateFormatter()
+            formatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+            createdAt = formatter.date(from: dateStr)
+        }
+
+        appState.billingType = billingType
+        appState.rateLimitTier = rateLimitTier
+        appState.capabilities = capabilities
+        appState.memberSince = createdAt
+        appState.freeCreditsStatus = freeCreditsStatus
+        appState.dataRetention = org["data_retention"] as? String
+
+        // Fetch account profile (email, display name)
+        await fetchAccountProfile(sessionKey: sessionKey)
+
+        // Persist to keychain for offline restore
+        authManager.persistAccountDetails(AccountDetails(
+            billingType: billingType,
+            rateLimitTier: rateLimitTier,
+            capabilities: capabilities,
+            createdAt: createdAt,
+            freeCreditsStatus: freeCreditsStatus,
+            email: appState.accountEmail,
+            displayName: appState.accountDisplayName
+        ))
+    }
+
+    /// Fetch /api/account for email and display name
+    private func fetchAccountProfile(sessionKey: String) async {
+        let urlString = APIConstants.baseURL + APIConstants.accountPath
+        guard let url = URL(string: urlString) else { return }
+
+        var request = URLRequest(url: url)
+        request.setValue("sessionKey=\(sessionKey)", forHTTPHeaderField: "Cookie")
+        request.timeoutInterval = 15
+
+        guard let (data, response) = try? await URLSession.shared.data(for: request),
+              let http = response as? HTTPURLResponse, http.statusCode == 200,
+              let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else { return }
+
+        appState.accountEmail = json["email_address"] as? String
+        appState.accountDisplayName = json["display_name"] as? String ?? json["full_name"] as? String
+    }
+
     func fetchUsage() async {
         guard isNetworkAvailable else { return }
         guard let sessionKey = authManager.getSessionKey(),
@@ -215,6 +282,8 @@ final class UsageService {
             appState.connectionStatus = .error(String(localized: "Connection problem", bundle: .app))
         }
     }
+
+    // MARK: - Network
 
     private func setupNetworkMonitor() {
         networkMonitor.pathUpdateHandler = { [weak self] path in
