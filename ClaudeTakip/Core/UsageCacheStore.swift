@@ -1,4 +1,5 @@
 import Foundation
+import os.log
 
 // MARK: - Cache Models
 
@@ -37,11 +38,13 @@ struct UsageCacheFile: Codable, Sendable {
 @MainActor
 final class UsageCacheStore {
     private static let directoryURL: URL = {
-        let appSupport = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first!
+        let appSupport = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
         return appSupport.appendingPathComponent("ClaudeTakip", isDirectory: true)
     }()
 
-    private static let fileURL = directoryURL.appendingPathComponent("usage-cache.json")
+    private static let legacyFileURL = directoryURL.appendingPathComponent("usage-cache.json")
+
+    private var orgId: String?
 
     private(set) var cache = UsageCacheFile()
     private var pendingWrites = 0
@@ -53,14 +56,47 @@ final class UsageCacheStore {
     private static let maxWeeklyHistory = 500
     private static let maxModelHistory = 200
 
+    private func fileURL() -> URL {
+        if let orgId {
+            return Self.directoryURL.appendingPathComponent("usage-cache-\(orgId).json")
+        }
+        return Self.legacyFileURL
+    }
+
+    // MARK: - Configure
+
+    /// Sets the active orgId, migrates legacy data if needed, and loads the cache.
+    func configure(orgId: String) {
+        self.orgId = orgId
+        migrateLegacyFileIfNeeded(orgId: orgId)
+        load()
+    }
+
+    /// Resets in-memory state without writing to disk (used on sign-out).
+    func clearInMemory() {
+        cache = UsageCacheFile()
+        pendingWrites = 0
+        lastWriteDate = nil
+        orgId = nil
+    }
+
     // MARK: - Load
 
     func load() {
         migrateFromUserDefaultsIfNeeded()
-        guard let data = try? Data(contentsOf: Self.fileURL),
+        guard let data = try? Data(contentsOf: fileURL()),
               let file = try? JSONDecoder.withISO8601.decode(UsageCacheFile.self, from: data)
         else { return }
         cache = file
+    }
+
+    /// One-time migration: rename unscoped legacy file to orgId-scoped file.
+    private func migrateLegacyFileIfNeeded(orgId: String) {
+        let fm = FileManager.default
+        let legacy = Self.legacyFileURL
+        let scoped = Self.directoryURL.appendingPathComponent("usage-cache-\(orgId).json")
+        guard fm.fileExists(atPath: legacy.path), !fm.fileExists(atPath: scoped.path) else { return }
+        try? fm.moveItem(at: legacy, to: scoped)
     }
 
     /// One-time migration from UserDefaults to file-based system
@@ -178,12 +214,14 @@ final class UsageCacheStore {
             if !fm.fileExists(atPath: Self.directoryURL.path) {
                 try fm.createDirectory(at: Self.directoryURL, withIntermediateDirectories: true)
             }
+            let url = fileURL()
             let data = try JSONEncoder.withISO8601.encode(cache)
-            try data.write(to: Self.fileURL, options: .atomic)
-            try fm.setAttributes([.posixPermissions: 0o600], ofItemAtPath: Self.fileURL.path)
+            try data.write(to: url, options: .atomic)
+            try fm.setAttributes([.posixPermissions: 0o600], ofItemAtPath: url.path)
             lastWriteDate = Date()
         } catch {
-            // Silent error — not critical, will retry on next batch
+            Logger(subsystem: "com.batuhanakpunar.ClaudeTakip", category: "cache")
+                .error("Cache write failed: \(error.localizedDescription)")
         }
     }
 }

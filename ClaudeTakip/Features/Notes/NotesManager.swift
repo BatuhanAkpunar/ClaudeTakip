@@ -3,6 +3,7 @@ import Foundation
 @Observable @MainActor
 final class NotesManager {
     private(set) var settings: AppSettings
+    private(set) var isFirstLaunch: Bool = false
     private let userDefaultsKey = "ClaudeTakip.AppSettings"
     private let store: UserDefaults
 
@@ -13,6 +14,7 @@ final class NotesManager {
             settings = decoded
         } else {
             settings = .defaultSettings
+            isFirstLaunch = true
         }
     }
 

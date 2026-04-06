@@ -34,6 +34,11 @@ final class AutoSessionService {
         checkTimer = nil
     }
 
+    /// Clears per-session state (used on sign-out to prevent stale cooldowns).
+    func resetState() {
+        lastAttemptDate = nil
+    }
+
     /// Immediately starts a new session using the cheapest model (Haiku).
     func startSessionNow() async {
         guard let sessionKey = authManager.getSessionKey(),
@@ -49,10 +54,21 @@ final class AutoSessionService {
         }
     }
 
-    private func checkAndStartSession() async {
+    func checkOnLaunch() async {
         guard notesManager.settings.autoSession,
-              let resetDate = appState.sessionResetDate,
-              Date() > resetDate else { return }
+              appState.hasLoadedUsage else { return }
+        await checkAndStartSession()
+    }
+
+    private func checkAndStartSession() async {
+        guard notesManager.settings.autoSession else { return }
+
+        // Trigger if: reset date expired OR no active session at all (nil after data loaded)
+        if let resetDate = appState.sessionResetDate {
+            guard Date() > resetDate else { return }
+        } else {
+            guard appState.hasLoadedUsage else { return }
+        }
 
         // Cooldown: don't retry more than once per 3 minutes
         if let last = lastAttemptDate, Date().timeIntervalSince(last) < 180 { return }
@@ -75,7 +91,8 @@ final class AutoSessionService {
             convId = try await createConversation(sessionKey: sessionKey, orgId: orgId)
 
             // 2. Send a message to trigger a new session window (Haiku = cheapest)
-            try await sendMessage(sessionKey: sessionKey, orgId: orgId, convId: convId!, model: "claude-3-5-haiku-20241022")
+            guard let id = convId else { throw AutoSessionError.createFailed }
+            try await sendMessage(sessionKey: sessionKey, orgId: orgId, convId: id, model: "claude-3-5-haiku-20241022")
 
             // Success — clear the expired reset date
             appState.sessionResetDate = nil

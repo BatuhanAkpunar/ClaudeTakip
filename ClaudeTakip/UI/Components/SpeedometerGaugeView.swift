@@ -66,11 +66,11 @@ struct SpeedometerGaugeView: View {
 
     private var badge: some View {
         Text(badgeText)
-            .font(.system(size: 11.5, weight: .semibold))
-            .foregroundStyle(badgeColor.opacity(colorScheme == .dark ? 0.9 : 0.85))
+            .font(.system(size: 11.5, weight: .bold))
+            .foregroundStyle(badgeColor.opacity(colorScheme == .dark ? 0.9 : 1.0))
             .padding(.horizontal, 7)
             .padding(.vertical, 5)
-            .background(Capsule().fill(badgeColor.opacity(colorScheme == .dark ? 0.15 : 0.12)))
+            .background(Capsule().fill(badgeColor.opacity(colorScheme == .dark ? 0.15 : 0.15)))
     }
 
     // MARK: - Canvas

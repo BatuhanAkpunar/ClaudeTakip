@@ -69,15 +69,11 @@ final class PacingMessageService {
     func onStaleCacheCheck() {
         guard appState.paceStatus != .unknown, !isUsageEmpty else { return }
 
-        // Language change: invalidate cache and refetch
+        // Language change: invalidate cache and refetch immediately
         if lastFetchedLanguage != nil, currentLanguage != lastFetchedLanguage {
             appState.aiPacingMessage = nil
             debounceTask?.cancel()
-            debounceTask = Task { [weak self] in
-                try? await Task.sleep(for: .seconds(GroqConstants.debounceInterval))
-                guard !Task.isCancelled else { return }
-                self?.fetchNow(reason: "languageChanged")
-            }
+            fetchNow(reason: "languageChanged")
             return
         }
 
@@ -98,6 +94,8 @@ final class PacingMessageService {
     func fetchInitialMessage(timeout: TimeInterval = 8) async {
         guard !isUsageEmpty else { return }
 
+        inFlightTask?.cancel()
+        appState.isFetchingAIMessage = true
         let context = buildContext()
         let language = currentLanguage
 
@@ -120,6 +118,7 @@ final class PacingMessageService {
         } catch {
             timeoutTask.cancel()
         }
+        appState.isFetchingAIMessage = false
     }
 
     // MARK: - Fetch
@@ -134,6 +133,7 @@ final class PacingMessageService {
         inFlightTask = Task { [weak self] in
             guard let self else { return }
 
+            appState.isFetchingAIMessage = true
             let context = buildContext()
             let language = currentLanguage
 
@@ -149,7 +149,7 @@ final class PacingMessageService {
                 lastFetchedLanguage = language
                 consecutiveErrors = 0
             } catch is CancellationError {
-                // Cancelled task
+                return
             } catch GroqError.rateLimited {
                 consecutiveErrors += 1
                 if isBlocked { appState.isAIUnavailable = true }
@@ -157,6 +157,7 @@ final class PacingMessageService {
                 consecutiveErrors += 1
                 if isBlocked { appState.isAIUnavailable = true }
             }
+            appState.isFetchingAIMessage = false
         }
     }
 

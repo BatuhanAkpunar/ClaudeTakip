@@ -75,6 +75,7 @@ final class AppState {
     var previousUsage: Double?
     var aiPacingMessage: PacingMessage?
     var isAIUnavailable: Bool = false
+    var isFetchingAIMessage: Bool = false
 
     // Usage history (in-memory — UsageCacheStore writes to disk)
     var usageHistory: [UsageSnapshot] = []
