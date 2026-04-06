@@ -243,14 +243,15 @@ final class PacingMessageService {
                     parts.append("Extra: unlimited, not yet used")
                 }
             } else {
-                // Limited mode
+                // Capped mode
                 let spent = (extra.usedCredits ?? 0)
                 let limit = (extra.monthlyLimit ?? 0)
+                let capPercent = limit > 0 ? Int(spent / limit * 100) : 0
                 if spent > 0 {
-                    let tag = extraLimitCritical ? " (limit almost reached)" : ""
-                    parts.append("Extra: limited, \(String(format: "$%.2f", spent / 100.0))/\(String(format: "$%.2f", limit / 100.0))\(tag)")
+                    let tag = extraLimitCritical ? " (cap almost reached)" : ""
+                    parts.append("Extra: has spending cap, \(capPercent)% of cap used\(tag)")
                 } else if quotasHigh {
-                    parts.append("Extra: limited, not yet used")
+                    parts.append("Extra: has spending cap, unused")
                 }
             }
         }
