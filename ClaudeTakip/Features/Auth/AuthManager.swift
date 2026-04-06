@@ -23,6 +23,20 @@ final class AuthManager {
         appState.organizationId = orgId
         appState.accountName = try? keychain.retrieve(key: KeychainConstants.accountNameAccount)
         appState.planName = try? keychain.retrieve(key: KeychainConstants.planNameAccount)
+
+        // Restore account details from keychain
+        if let detailsStr = try? keychain.retrieve(key: KeychainConstants.accountDetailsAccount),
+           let data = detailsStr.data(using: .utf8),
+           let details = try? JSONDecoder().decode(AccountDetails.self, from: data) {
+            appState.billingType = details.billingType
+            appState.rateLimitTier = details.rateLimitTier
+            appState.capabilities = details.capabilities
+            appState.memberSince = details.createdAt
+            appState.freeCreditsStatus = details.freeCreditsStatus
+            appState.accountEmail = details.email
+            appState.accountDisplayName = details.displayName
+        }
+
         appState.isLoggedIn = true
         appState.connectionStatus = .connected
     }
@@ -40,11 +54,18 @@ final class AuthManager {
             try keychain.save(key: KeychainConstants.planNameAccount, value: plan)
         }
 
-        appState.organizationId = info.id
-        appState.accountName = info.name
-        appState.planName = info.plan
-        appState.isLoggedIn = true
-        appState.connectionStatus = .connected
+        // Persist account details
+        if let encoded = try? JSONEncoder().encode(AccountDetails(
+            billingType: info.billingType,
+            rateLimitTier: info.rateLimitTier,
+            capabilities: info.capabilities,
+            createdAt: info.createdAt,
+            freeCreditsStatus: info.freeCreditsStatus
+        )) {
+            try? keychain.save(key: KeychainConstants.accountDetailsAccount, value: String(data: encoded, encoding: .utf8) ?? "")
+        }
+
+        applyOrgInfo(info)
     }
 
     func signOut() {
@@ -53,12 +74,21 @@ final class AuthManager {
         try? keychain.delete(key: KeychainConstants.orgIdAccount)
         try? keychain.delete(key: KeychainConstants.accountNameAccount)
         try? keychain.delete(key: KeychainConstants.planNameAccount)
+        try? keychain.delete(key: KeychainConstants.accountDetailsAccount)
 
         // Auth
         appState.isLoggedIn = false
         appState.organizationId = nil
         appState.accountName = nil
         appState.planName = nil
+        appState.billingType = nil
+        appState.rateLimitTier = nil
+        appState.capabilities = []
+        appState.memberSince = nil
+        appState.freeCreditsStatus = nil
+        appState.dataRetention = nil
+        appState.accountEmail = nil
+        appState.accountDisplayName = nil
 
         // Session
         appState.sessionUsage = 0
@@ -101,6 +131,25 @@ final class AuthManager {
         }
     }
 
+    private func applyOrgInfo(_ info: OrgInfo) {
+        appState.organizationId = info.id
+        appState.accountName = info.name
+        appState.planName = info.plan
+        appState.billingType = info.billingType
+        appState.rateLimitTier = info.rateLimitTier
+        appState.capabilities = info.capabilities
+        appState.memberSince = info.createdAt
+        appState.freeCreditsStatus = info.freeCreditsStatus
+        appState.isLoggedIn = true
+        appState.connectionStatus = .connected
+    }
+
+    func persistAccountDetails(_ details: AccountDetails) {
+        if let encoded = try? JSONEncoder().encode(details) {
+            try? keychain.save(key: KeychainConstants.accountDetailsAccount, value: String(data: encoded, encoding: .utf8) ?? "")
+        }
+    }
+
     func getSessionKey() -> String? {
         if let cached = cachedSessionKey { return cached }
         // Fallback: cache miss (should not happen, but just in case)
@@ -109,7 +158,18 @@ final class AuthManager {
         return key
     }
 
-    private func fetchOrganizationInfo(sessionKey: String) async throws -> (id: String, name: String?, plan: String?) {
+    struct OrgInfo {
+        let id: String
+        let name: String?
+        let plan: String?
+        let billingType: String?
+        let rateLimitTier: String?
+        let capabilities: [String]
+        let createdAt: Date?
+        let freeCreditsStatus: String?
+    }
+
+    private func fetchOrganizationInfo(sessionKey: String) async throws -> OrgInfo {
         guard let url = URL(string: APIConstants.baseURL + APIConstants.organizationsPath) else {
             throw AuthError.organizationFetchFailed
         }
@@ -127,8 +187,34 @@ final class AuthManager {
             throw AuthError.noOrganizationFound
         }
 
+        guard let json = try? JSONSerialization.jsonObject(with: data) as? [[String: Any]],
+              let orgDict = json.first else {
+            throw AuthError.organizationFetchFailed
+        }
+
         let plan = Self.detectPlan(from: data)
-        return (org.uuid, org.name, plan)
+        let billingType = orgDict["billing_type"] as? String
+        let rateLimitTier = orgDict["rate_limit_tier"] as? String
+        let capabilities = orgDict["capabilities"] as? [String] ?? []
+        let freeCreditsStatus = orgDict["free_credits_status"] as? String
+
+        var createdAt: Date?
+        if let dateStr = orgDict["created_at"] as? String {
+            let formatter = ISO8601DateFormatter()
+            formatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+            createdAt = formatter.date(from: dateStr)
+        }
+
+        return OrgInfo(
+            id: org.uuid,
+            name: org.name,
+            plan: plan,
+            billingType: billingType,
+            rateLimitTier: rateLimitTier,
+            capabilities: capabilities,
+            createdAt: createdAt,
+            freeCreditsStatus: freeCreditsStatus
+        )
     }
 
     private static func detectPlan(from data: Data) -> String? {
@@ -195,3 +281,14 @@ private struct Organization: Codable {
     let uuid: String
     let name: String?
 }
+
+struct AccountDetails: Codable, Sendable {
+    let billingType: String?
+    let rateLimitTier: String?
+    let capabilities: [String]
+    let createdAt: Date?
+    let freeCreditsStatus: String?
+    var email: String?
+    var displayName: String?
+}
+

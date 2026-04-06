@@ -202,6 +202,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         startupTask = Task { [weak self] in
             guard let self else { return }
 
+            // 0. Fetch account details (plan, billing, etc.)
+            await usageService.fetchAccountDetails()
+
             // 1. Fetch fresh data
             await usageService.fetchUsage()
             guard !Task.isCancelled else { return }

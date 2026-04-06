@@ -230,13 +230,20 @@ struct DetailedChartView: View {
         let depX = w * min(2, depElapsed / windowDuration)
         let depY: CGFloat = topPad
 
-        // Dashed projection line
+        // Dashed projection line — transparent to opaque
         var projPath = Path()
         projPath.move(to: last)
         projPath.addLine(to: CGPoint(x: depX, y: depY))
         context.stroke(
             projPath,
-            with: .color(DT.Colors.statusRed.opacity(0.5)),
+            with: .linearGradient(
+                Gradient(colors: [
+                    DT.Colors.statusRed.opacity(0.08),
+                    DT.Colors.statusRed.opacity(0.70)
+                ]),
+                startPoint: last,
+                endPoint: CGPoint(x: depX, y: depY)
+            ),
             style: StrokeStyle(lineWidth: 2, lineCap: .round, dash: [5, 3])
         )
 
@@ -262,10 +269,10 @@ struct DetailedChartView: View {
         formatter.dateFormat = "HH:mm"
         let timeStr = formatter.string(from: depletionDate)
         let label1 = Text("Estimated Overrun")
-            .font(.system(size: 9, weight: .semibold))
+            .font(.system(size: 10, weight: .semibold))
             .foregroundColor(DT.Colors.statusRed)
         let label2 = Text(timeStr)
-            .font(.system(size: 9.5, weight: .bold, design: .monospaced))
+            .font(.system(size: 10.5, weight: .bold, design: .monospaced))
             .foregroundColor(DT.Colors.statusRed)
         let resolved1 = context.resolve(label1)
         let resolved2 = context.resolve(label2)

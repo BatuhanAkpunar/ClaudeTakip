@@ -75,33 +75,7 @@ final class MenuBarViewModel {
     }
 
     var paceStrategy: String {
-        if let ai = appState.aiPacingMessage {
-            return ai.message
-        }
-        return staticStrategy
-    }
-
-    private var staticStrategy: String {
-        // Limit reached — static fallback if Groq doesn't respond
-        if appState.sessionUsage >= 1.0 {
-            if let extra = appState.extraUsage, extra.isEnabled, (extra.usedCredits ?? 0) > 0 {
-                return String(localized: "Extra credits are being spent. Be careful, every query has a cost.", bundle: .app)
-            }
-            if appState.extraUsage?.isEnabled == true {
-                return String(localized: "Your session limit is reached. Extra usage is active for urgent work, but be careful.", bundle: .app)
-            }
-            return String(localized: "Your session limit is reached. Wait for reset or enable extra usage.", bundle: .app)
-        }
-
-        return switch appState.paceStatus {
-        case .comfortable: String(localized: "Your usage is at an ideal level", bundle: .app)
-        case .steady: String(localized: "You've found a balanced pace", bundle: .app)
-        case .moderate: String(localized: "You should reduce your usage", bundle: .app)
-        case .elevated: String(localized: "Continue with brief and concise queries", bundle: .app)
-        case .high: String(localized: "Handle only your priority work", bundle: .app)
-        case .critical: String(localized: "Wait for reset, very little remaining", bundle: .app)
-        case .unknown: ""
-        }
+        appState.aiPacingMessage?.message ?? ""
     }
 
     // MARK: - Time Fractions
@@ -442,6 +416,76 @@ final class MenuBarViewModel {
             return "\(hours)\(hUnit) \(minutes)\(mUnit) \(suffix)"
         }
         return "\(max(1, minutes))\(mUnit) \(suffix)"
+    }
+
+    // MARK: - Account Details
+
+    var accountPlanDisplayName: String {
+        if let tier = appState.rateLimitTier?.lowercased() {
+            if tier.contains("max_20") || tier.contains("max20") { return "Max 20" }
+            if tier.contains("max_5") || tier.contains("max5") { return "Max 5" }
+            if tier.contains("enterprise") { return "Enterprise" }
+            if tier.contains("team") { return "Team" }
+            if tier.contains("pro") { return "Pro" }
+            if tier.contains("free") { return "Free" }
+        }
+        return appState.planName ?? "Unknown"
+    }
+
+    var accountBillingDisplayText: String? {
+        guard let billing = appState.billingType else { return nil }
+        switch billing {
+        case "stripe_subscription":
+            return String(localized: "Active Subscription", bundle: .app)
+        default:
+            return billing.replacingOccurrences(of: "_", with: " ").capitalized
+        }
+    }
+
+    var accountMemberSinceText: String? {
+        guard let date = appState.memberSince else { return nil }
+        let formatter = DateFormatter()
+        formatter.locale = appLocale
+        formatter.dateFormat = "MMMM yyyy"
+        return formatter.string(from: date)
+    }
+
+    var accountExtraUsageStatusText: String {
+        guard let extra = appState.extraUsage else {
+            return String(localized: "Not Available", bundle: .app)
+        }
+        return extra.isEnabled
+            ? String(localized: "Enabled", bundle: .app)
+            : String(localized: "Disabled", bundle: .app)
+    }
+
+    var accountSpendingText: String? {
+        guard let extra = appState.extraUsage, extra.isEnabled else { return nil }
+        let used = (extra.usedCredits ?? 0) / 100.0
+        guard used > 0 else { return nil }
+        return String(format: "$%.2f", used)
+    }
+
+    var accountSpendingCapText: String? {
+        guard let extra = appState.extraUsage, extra.isEnabled else { return nil }
+        guard let limit = extra.monthlyLimit else {
+            return String(localized: "Unlimited", bundle: .app)
+        }
+        return String(format: "$%.0f", limit / 100.0)
+    }
+
+    var accountDataRetentionText: String? {
+        guard let retention = appState.dataRetention else { return nil }
+        switch retention {
+        case "default":
+            return String(localized: "Standard", bundle: .app)
+        case "none", "disabled":
+            return String(localized: "Disabled", bundle: .app)
+        case "custom":
+            return String(localized: "Custom", bundle: .app)
+        default:
+            return retention.capitalized
+        }
     }
 
     // MARK: - Clock
