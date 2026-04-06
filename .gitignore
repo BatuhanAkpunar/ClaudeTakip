@@ -13,6 +13,7 @@ build/
 # macOS
 .DS_Store
 .superpowers/
+*.dmg
 
 # Secrets
 Local.xcconfig
