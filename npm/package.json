@@ -1,0 +1,29 @@
+{
+  "name": "claudetakip",
+  "version": "1.2.1",
+  "description": "Install ClaudeTakip — a macOS menu bar app that tracks your Claude AI usage limits in real time.",
+  "bin": {
+    "claudetakip": "bin/install.js"
+  },
+  "keywords": [
+    "claude",
+    "anthropic",
+    "usage",
+    "tracker",
+    "macos",
+    "menu-bar"
+  ],
+  "author": "Batuhan Akpunar",
+  "license": "SEE LICENSE IN LICENSE",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/BatuhanAkpunar/ClaudeTakip"
+  },
+  "homepage": "https://claudetakip.vercel.app",
+  "os": [
+    "darwin"
+  ],
+  "engines": {
+    "node": ">=16"
+  }
+}
