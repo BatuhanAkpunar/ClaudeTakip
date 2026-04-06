@@ -167,18 +167,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             }
         }
 
-        let wrappedView = loginWebView
-            .overlay(alignment: .topTrailing) {
-                Button(action: { NSApp.terminate(nil) }) {
-                    Image(systemName: "xmark.circle.fill")
-                        .font(.system(size: 18, weight: .medium))
-                        .foregroundStyle(.secondary.opacity(0.6))
-                }
-                .buttonStyle(.plain)
-                .padding(10)
-            }
-
-        let hostingController = NSHostingController(rootView: wrappedView)
+        let hostingController = NSHostingController(rootView: loginWebView)
         let window = NSWindow(contentViewController: hostingController)
         window.title = "ClaudeTakip — Sign In"
         window.styleMask = [.titled, .closable, .resizable]
