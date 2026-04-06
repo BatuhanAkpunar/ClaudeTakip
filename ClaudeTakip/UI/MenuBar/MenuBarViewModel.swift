@@ -34,29 +34,40 @@ final class MenuBarViewModel {
         switch appState.connectionStatus {
         case .connected: statusDotColor
         case .disconnected: .gray
-        case .error: .red
+        case .error: statusDotColor // reflect system status, not connection error
         }
     }
 
     var statusTooltip: String {
-        switch appState.connectionStatus {
-        case .connected:
-            switch appState.claudeSystemStatus {
-            case .operational: String(localized: "Claude status: Stable", bundle: .app)
-            case .degraded, .major, .maintenance: String(localized: "Claude status: Outage", bundle: .app)
-            }
-        case .disconnected: String(localized: "No internet connection", bundle: .app)
-        case .error(let msg): String(localized: "Error: \(msg)", bundle: .app)
+        if case .disconnected = appState.connectionStatus {
+            return String(localized: "No internet connection", bundle: .app)
+        }
+        switch appState.claudeSystemStatus {
+        case .operational: return String(localized: "Claude status: Stable", bundle: .app)
+        case .degraded, .major, .maintenance: return String(localized: "Claude status: Outage", bundle: .app)
         }
     }
 
     var lastUpdateText: String {
         _ = clockTick
+        if case .error(let msg) = appState.connectionStatus {
+            return msg
+        }
         guard let date = appState.lastUpdateDate else { return "--" }
         let seconds = Int(Date().timeIntervalSince(date))
         if seconds < 60 { return String(localized: "now", bundle: .app) }
         let minutes = seconds / 60
         return String(localized: "\(minutes) min ago", bundle: .app)
+    }
+
+    /// Whether the last-update area should highlight (connection error or stale data)
+    var isLastUpdateWarning: Bool {
+        _ = clockTick
+        if case .error = appState.connectionStatus { return true }
+        if let date = appState.lastUpdateDate {
+            return Date().timeIntervalSince(date) / 60 > 10
+        }
+        return false
     }
 
     func openStatusPage() {

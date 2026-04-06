@@ -147,12 +147,12 @@ struct MenuBarView: View {
                     .foregroundStyle(.primary.opacity(0.30))
 
                 HStack(spacing: 4) {
-                    BI.arrowClockwise.view(size: 9)
+                    BI.arrowClockwise.view(size: 10)
                         .rotationEffect(.degrees(isRefreshing ? 360 : 0))
                     Text(viewModel.lastUpdateText)
-                        .font(.system(size: 10, weight: .medium))
+                        .font(.system(size: 11, weight: .semibold))
                 }
-                .foregroundStyle(.primary.opacity(0.45))
+                .foregroundStyle(viewModel.isLastUpdateWarning ? DT.Colors.statusOrange : .primary.opacity(0.55))
                 .onTapGesture {
                     withAnimation(DT.Animation.refreshSpin) { isRefreshing = true }
                     onRefresh()
@@ -1134,8 +1134,11 @@ struct MenuBarView: View {
 
     private var statusCloudIcon: some View {
         Group {
-            switch viewModel.appState.connectionStatus {
-            case .connected:
+            if case .disconnected = viewModel.appState.connectionStatus {
+                Image(systemName: "cloud.slash.fill")
+                    .font(.system(size: 14, weight: .medium))
+                    .foregroundStyle(.gray)
+            } else {
                 switch viewModel.appState.claudeSystemStatus {
                 case .operational:
                     Image(systemName: "checkmark.icloud.fill")
@@ -1146,14 +1149,6 @@ struct MenuBarView: View {
                         .font(.system(size: 14, weight: .medium))
                         .foregroundStyle(DT.Colors.statusRed)
                 }
-            case .disconnected:
-                Image(systemName: "cloud.slash.fill")
-                    .font(.system(size: 14, weight: .medium))
-                    .foregroundStyle(.gray)
-            case .error:
-                Image(systemName: "exclamationmark.icloud.fill")
-                    .font(.system(size: 13, weight: .medium))
-                    .foregroundStyle(DT.Colors.statusRed)
             }
         }
     }
