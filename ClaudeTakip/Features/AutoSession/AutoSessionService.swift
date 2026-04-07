@@ -31,7 +31,7 @@ final class AutoSessionService {
                 await ping()
             }
         }
-        logger.debug("[AutoSession] Polling started (every \(Int(self.pingInterval))s)")
+        logger.info("[AutoSession] Polling started (every \(Int(self.pingInterval))s)")
     }
 
     func stopMonitoring() {
@@ -54,7 +54,7 @@ final class AutoSessionService {
     private func ping() async {
         guard let sessionKey = authManager.getSessionKey(),
               let orgId = appState.organizationId else {
-            logger.debug("[AutoSession] No credentials, skipping ping")
+            logger.info("[AutoSession] No credentials, skipping ping")
             return
         }
 
@@ -62,10 +62,10 @@ final class AutoSessionService {
         do {
             convId = try await createConversation(sessionKey: sessionKey, orgId: orgId)
             guard let id = convId else { throw AutoSessionError.createFailed }
-            try await sendMessage(sessionKey: sessionKey, orgId: orgId, convId: id, model: "claude-3-5-haiku-20241022")
-            logger.debug("[AutoSession] Ping successful")
+            try await sendMessage(sessionKey: sessionKey, orgId: orgId, convId: id, model: "claude-haiku-4-5-20251001")
+            logger.info("[AutoSession] Ping successful")
         } catch {
-            logger.debug("[AutoSession] Ping failed: \(error.localizedDescription)")
+            logger.error("[AutoSession] Ping failed: \(error.localizedDescription)")
         }
 
         if let convId {
@@ -95,11 +95,12 @@ final class AutoSessionService {
         ]
         request.httpBody = try JSONSerialization.data(withJSONObject: body)
 
-        let (_, response) = try await URLSession.shared.data(for: request)
+        let (data, response) = try await URLSession.shared.data(for: request)
         guard let httpResponse = response as? HTTPURLResponse,
               (200...201).contains(httpResponse.statusCode) else {
             let code = (response as? HTTPURLResponse)?.statusCode ?? -1
-            logger.debug("[AutoSession] Create conversation failed with status: \(code)")
+            let respBody = String(data: data, encoding: .utf8) ?? "nil"
+            logger.error("[AutoSession] Create conversation failed: \(code) — \(respBody)")
             throw AutoSessionError.createFailed
         }
 
@@ -119,14 +120,15 @@ final class AutoSessionService {
         let body: [String: Any] = [
             "prompt": "hi",
             "timezone": TimeZone.current.identifier,
-            "model": model ?? "claude-3-5-haiku-20241022"
+            "model": model ?? "claude-haiku-4-5-20251001"
         ]
         request.httpBody = try JSONSerialization.data(withJSONObject: body)
 
-        let (_, response) = try await URLSession.shared.data(for: request)
+        let (data, response) = try await URLSession.shared.data(for: request)
         guard let httpResponse = response as? HTTPURLResponse, httpResponse.statusCode == 200 else {
             let code = (response as? HTTPURLResponse)?.statusCode ?? -1
-            logger.debug("[AutoSession] Send message failed with status: \(code)")
+            let respBody = String(data: data, encoding: .utf8) ?? "nil"
+            logger.error("[AutoSession] Send message failed: \(code) — \(respBody)")
             throw AutoSessionError.messageFailed
         }
     }
