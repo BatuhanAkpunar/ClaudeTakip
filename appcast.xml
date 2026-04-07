@@ -12,7 +12,7 @@
             <sparkle:shortVersionString>1.2.6</sparkle:shortVersionString>
             <sparkle:minimumSystemVersion>15.0</sparkle:minimumSystemVersion>
             <enclosure
-                url="https://github.com/BatuhanAkpunar/ClaudeTakip/releases/download/v1.2.6/ClaudeTakip-1.2.6.zip"
+                url="https://github.com/BatuhanAkpunar/ClaudeTakip/releases/download/v1.2.6/ClaudeTakip.zip"
                 length="2168368"
                 type="application/octet-stream"
                 sparkle:edSignature="LvE4lL3Hf0M7q5uHGRrOLbHIJsXaPZVieEGcwh9dorQXdIu7Jb+oSvQNIftcv09jbiRLjoHeuwD+d/pDrXVnBA=="
@@ -25,7 +25,7 @@
             <sparkle:shortVersionString>1.2.5</sparkle:shortVersionString>
             <sparkle:minimumSystemVersion>15.0</sparkle:minimumSystemVersion>
             <enclosure
-                url="https://github.com/BatuhanAkpunar/ClaudeTakip/releases/download/v1.2.5/ClaudeTakip-1.2.5.zip"
+                url="https://github.com/BatuhanAkpunar/ClaudeTakip/releases/download/v1.2.5/ClaudeTakip.zip"
                 length="2169008"
                 type="application/octet-stream"
                 sparkle:edSignature="mV9GSxuGG9UsEaOmZWKArI9ol9OWAzDrw9y8l0GLdl7do+YH60DJjU/w38VYkvsSjrWixWaA20uwhJrnAQLaCw=="
