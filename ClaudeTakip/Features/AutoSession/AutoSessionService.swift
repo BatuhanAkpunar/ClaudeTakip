@@ -28,10 +28,11 @@ final class AutoSessionService {
                 try? await Task.sleep(for: .seconds(self?.pingInterval ?? 600))
                 guard let self, !Task.isCancelled else { return }
                 guard notesManager.settings.autoSession else { continue }
+                NSLog("[AutoSession] Timer fired, calling ping")
                 await ping()
             }
         }
-        logger.info("[AutoSession] Polling started (every \(Int(self.pingInterval))s)")
+        NSLog("[AutoSession] Polling started (every %ds)", Int(pingInterval))
     }
 
     func stopMonitoring() {
@@ -54,18 +55,19 @@ final class AutoSessionService {
     private func ping() async {
         guard let sessionKey = authManager.getSessionKey(),
               let orgId = appState.organizationId else {
-            logger.info("[AutoSession] No credentials, skipping ping")
+            NSLog("[AutoSession] No credentials, skipping ping")
             return
         }
 
+        NSLog("[AutoSession] Ping starting")
         var convId: String?
         do {
             convId = try await createConversation(sessionKey: sessionKey, orgId: orgId)
             guard let id = convId else { throw AutoSessionError.createFailed }
             try await sendMessage(sessionKey: sessionKey, orgId: orgId, convId: id, model: "claude-haiku-4-5-20251001")
-            logger.info("[AutoSession] Ping successful")
+            NSLog("[AutoSession] Ping successful")
         } catch {
-            logger.error("[AutoSession] Ping failed: \(error.localizedDescription)")
+            NSLog("[AutoSession] Ping FAILED: %@", String(describing: error))
         }
 
         if let convId {
@@ -100,7 +102,7 @@ final class AutoSessionService {
               (200...201).contains(httpResponse.statusCode) else {
             let code = (response as? HTTPURLResponse)?.statusCode ?? -1
             let respBody = String(data: data, encoding: .utf8) ?? "nil"
-            logger.error("[AutoSession] Create conversation failed: \(code) — \(respBody)")
+            NSLog("[AutoSession] Create conversation FAILED: %d — %@", code, respBody)
             throw AutoSessionError.createFailed
         }
 
@@ -128,7 +130,7 @@ final class AutoSessionService {
         guard let httpResponse = response as? HTTPURLResponse, httpResponse.statusCode == 200 else {
             let code = (response as? HTTPURLResponse)?.statusCode ?? -1
             let respBody = String(data: data, encoding: .utf8) ?? "nil"
-            logger.error("[AutoSession] Send message failed: \(code) — \(respBody)")
+            NSLog("[AutoSession] Send message FAILED: %d — %@", code, respBody)
             throw AutoSessionError.messageFailed
         }
     }
