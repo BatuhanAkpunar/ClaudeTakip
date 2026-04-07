@@ -1,4 +1,5 @@
 import Foundation
+import ServiceManagement
 
 @Observable @MainActor
 final class NotesManager {
@@ -16,11 +17,29 @@ final class NotesManager {
             settings = .defaultSettings
             isFirstLaunch = true
         }
+        syncLaunchAtLogin()
     }
 
     func updateSettings(_ update: (inout AppSettings) -> Void) {
+        let previousLaunchAtLogin = settings.launchAtLogin
         update(&settings)
         save()
+        if settings.launchAtLogin != previousLaunchAtLogin {
+            syncLaunchAtLogin()
+        }
+    }
+
+    private func syncLaunchAtLogin() {
+        let service = SMAppService.mainApp
+        do {
+            if settings.launchAtLogin {
+                try service.register()
+            } else {
+                try service.unregister()
+            }
+        } catch {
+            NSLog("LaunchAtLogin: failed to \(settings.launchAtLogin ? "register" : "unregister"): \(error)")
+        }
     }
 
     private func save() {
