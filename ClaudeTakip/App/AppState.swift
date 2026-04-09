@@ -83,6 +83,7 @@ final class AppState {
     // Pacing
     var paceStatus: PaceStatus = .unknown
     var previousUsage: Double?
+    var previousWeeklyUsage: Double?
     var aiPacingMessage: PacingMessage?
     var isAIUnavailable: Bool = false
     var isFetchingAIMessage: Bool = false
