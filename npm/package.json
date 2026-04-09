@@ -1,6 +1,6 @@
 {
   "name": "claudetakip",
-  "version": "1.2.8",
+  "version": "1.2.9",
   "description": "Install ClaudeTakip — a macOS menu bar app that tracks your Claude AI usage limits in real time.",
   "bin": {
     "claudetakip": "bin/install.js"
