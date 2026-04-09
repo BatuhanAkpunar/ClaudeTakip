@@ -170,11 +170,11 @@ final class UsageService {
         appState.sessionUsage = usage.fiveHourUtilization
         appState.sessionRemaining = usage.sessionRemaining
 
-        // Track previous weekly usage for reset detection (mirrors session previousUsage)
-        if appState.previousWeeklyUsage != nil {
-            appState.previousWeeklyUsage = appState.weeklyUsage
-        } else {
-            appState.previousWeeklyUsage = usage.sevenDayUtilization
+        // If baseline was never set (first launch or upgrade), initialize from current usage
+        if !UserDefaults.standard.bool(forKey: "weeklyResetBaselineSet") {
+            appState.weeklyResetBaselineUsage = usage.sevenDayUtilization
+            UserDefaults.standard.set(usage.sevenDayUtilization, forKey: "weeklyResetBaselineUsage")
+            UserDefaults.standard.set(true, forKey: "weeklyResetBaselineSet")
         }
         appState.weeklyUsage = usage.sevenDayUtilization
 
@@ -200,6 +200,9 @@ final class UsageService {
             if let old = oldReset, abs(old.timeIntervalSince(weeklyReset)) > 10 {
                 cacheStore.clearWeeklyHistory()
                 appState.weeklyUsageHistory.removeAll()
+                // Save baseline usage at reset — rate = (current - baseline) / elapsed
+                appState.weeklyResetBaselineUsage = usage.sevenDayUtilization
+                UserDefaults.standard.set(usage.sevenDayUtilization, forKey: "weeklyResetBaselineUsage")
             }
         }
 
@@ -259,6 +262,9 @@ final class UsageService {
         appState.usageHistory = c.sessionHistory
         appState.weeklyUsageHistory = c.weeklyHistory
         appState.sonnetUsageHistory = c.sonnetHistory
+
+        // Restore weekly baseline from previous session
+        appState.weeklyResetBaselineUsage = UserDefaults.standard.double(forKey: "weeklyResetBaselineUsage")
     }
 
     // MARK: - Private

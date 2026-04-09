@@ -173,11 +173,8 @@ final class MenuBarViewModel {
         _ = clockTick
         let elapsed = weeklyTimeElapsed
         guard elapsed > 0.01 else { return 0 }
-        // Reset detection: usage dropped means weekly window renewed
-        if let prev = appState.previousWeeklyUsage, appState.weeklyUsage < prev {
-            return 1.0
-        }
-        return appState.weeklyUsage / elapsed
+        let effectiveUsage = max(0, appState.weeklyUsage - appState.weeklyResetBaselineUsage)
+        return effectiveUsage / elapsed
     }
 
     var sessionRateBadgeText: String { rateBadgeText(for: sessionRate) }
