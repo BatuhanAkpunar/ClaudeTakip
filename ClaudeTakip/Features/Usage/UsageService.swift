@@ -169,6 +169,13 @@ final class UsageService {
         }
         appState.sessionUsage = usage.fiveHourUtilization
         appState.sessionRemaining = usage.sessionRemaining
+
+        // Track previous weekly usage for reset detection (mirrors session previousUsage)
+        if appState.previousWeeklyUsage != nil {
+            appState.previousWeeklyUsage = appState.weeklyUsage
+        } else {
+            appState.previousWeeklyUsage = usage.sevenDayUtilization
+        }
         appState.weeklyUsage = usage.sevenDayUtilization
 
         // If session quota is full, save the date (to inform Groq in the next session)
@@ -225,9 +232,9 @@ final class UsageService {
         cacheStore.recordSessionSnapshot(usage: usage.fiveHourUtilization)
         appState.usageHistory = cacheStore.cache.sessionHistory
 
-        // Weekly — record every 30 min (sufficient granularity for 7-day window)
+        // Weekly — record every 10 min
         let lastWeeklyTime = cacheStore.cache.weeklyHistory.last?.timestamp ?? .distantPast
-        if Date().timeIntervalSince(lastWeeklyTime) >= 1800 {
+        if Date().timeIntervalSince(lastWeeklyTime) >= 600 {
             cacheStore.recordWeeklySnapshot(usage: usage.sevenDayUtilization)
         }
         appState.weeklyUsageHistory = cacheStore.cache.weeklyHistory

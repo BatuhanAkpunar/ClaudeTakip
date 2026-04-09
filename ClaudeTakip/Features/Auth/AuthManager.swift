@@ -109,6 +109,7 @@ final class AuthManager {
         // Pacing
         appState.paceStatus = .unknown
         appState.previousUsage = nil
+        appState.previousWeeklyUsage = nil
         appState.aiPacingMessage = nil
         appState.isAIUnavailable = false
         appState.isFetchingAIMessage = false
