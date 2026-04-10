@@ -227,8 +227,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             viewModel?.startClockTick()
             startPacingObservation()
 
-            // 5. Fire initial ping immediately
+            // 5. Fire initial Haiku ping immediately
             await autoSessionService.startSessionNow()
+
+            // 6. Fire initial Sonnet ping (throttled to 1x/hour in AutoSessionService).
+            //    Runs at every app launch and after login — the throttle ensures
+            //    we don't spam if the user re-opens the app, but guarantees a fresh
+            //    Sonnet quota window is opened on login / fresh install.
+            await autoSessionService.pingSonnet()
         }
 
         // Safety net: show anyway if not loaded within 15s
