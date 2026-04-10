@@ -29,7 +29,7 @@ final class AutoSessionService {
                 guard let self, !Task.isCancelled else { return }
                 guard notesManager.settings.autoSession else { continue }
                 NSLog("[AutoSession] Timer fired, calling ping")
-                await ping()
+                await ping(model: "claude-haiku-4-5-20251001", label: "Haiku")
             }
         }
         NSLog("[AutoSession] Polling started (every %ds)", Int(pingInterval))
@@ -47,27 +47,35 @@ final class AutoSessionService {
     // MARK: - Manual Start (UI button)
 
     func startSessionNow() async {
-        await ping()
+        await ping(model: "claude-haiku-4-5-20251001", label: "Haiku")
+    }
+
+    // MARK: - Sonnet Auto-Restart
+
+    /// Sends a single "hi" message using the Sonnet model to auto-start a fresh
+    /// Sonnet quota window after reset. Analogous to the Haiku-based session ping.
+    func pingSonnet() async {
+        await ping(model: "claude-sonnet-4-5-20250929", label: "Sonnet")
     }
 
     // MARK: - Ping
 
-    private func ping() async {
+    private func ping(model: String, label: String) async {
         guard let sessionKey = authManager.getSessionKey(),
               let orgId = appState.organizationId else {
-            NSLog("[AutoSession] No credentials, skipping ping")
+            NSLog("[AutoSession] No credentials, skipping %@ ping", label)
             return
         }
 
-        NSLog("[AutoSession] Ping starting")
+        NSLog("[AutoSession] %@ ping starting", label)
         var convId: String?
         do {
             convId = try await createConversation(sessionKey: sessionKey, orgId: orgId)
             guard let id = convId else { throw AutoSessionError.createFailed }
-            try await sendMessage(sessionKey: sessionKey, orgId: orgId, convId: id, model: "claude-haiku-4-5-20251001")
-            NSLog("[AutoSession] Ping successful")
+            try await sendMessage(sessionKey: sessionKey, orgId: orgId, convId: id, model: model)
+            NSLog("[AutoSession] %@ ping successful", label)
         } catch {
-            NSLog("[AutoSession] Ping FAILED: %@", String(describing: error))
+            NSLog("[AutoSession] %@ ping FAILED: %@", label, String(describing: error))
         }
 
         if let convId {
@@ -109,7 +117,7 @@ final class AutoSessionService {
         return convUUID
     }
 
-    private func sendMessage(sessionKey: String, orgId: String, convId: String, model: String? = nil) async throws {
+    private func sendMessage(sessionKey: String, orgId: String, convId: String, model: String) async throws {
         let urlString = APIConstants.baseURL + APIConstants.completionPath(orgId: orgId, convId: convId)
         guard let url = URL(string: urlString) else { throw AutoSessionError.invalidURL }
 
@@ -122,7 +130,7 @@ final class AutoSessionService {
         let body: [String: Any] = [
             "prompt": "hi",
             "timezone": TimeZone.current.identifier,
-            "model": model ?? "claude-haiku-4-5-20251001"
+            "model": model
         ]
         request.httpBody = try JSONSerialization.data(withJSONObject: body)
 

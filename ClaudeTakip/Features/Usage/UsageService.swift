@@ -9,7 +9,9 @@ final class UsageService {
     private var pollingTimer: Timer?
     private let networkMonitor = NWPathMonitor()
     private var isNetworkAvailable = true
+    private var isRestartingSonnet = false
     var onSessionExpired: (() -> Void)?
+    var onSonnetResetDetected: (() async -> Void)?
 
     init(appState: AppState, authManager: AuthManager, cacheStore: UsageCacheStore) {
         self.appState = appState
@@ -211,12 +213,28 @@ final class UsageService {
             appState.sonnetUsage = sonnetUtil
             appState.sonnetRemaining = max(0, 1.0 - sonnetUtil)
         }
+        let previousSonnetReset = appState.sonnetResetDate
         if let sonnetReset = usage.sonnetResetsAt {
-            let oldReset = appState.sonnetResetDate
             appState.sonnetResetDate = sonnetReset
-            if let old = oldReset, abs(old.timeIntervalSince(sonnetReset)) > 10 {
+            if let old = previousSonnetReset, abs(old.timeIntervalSince(sonnetReset)) > 10 {
                 cacheStore.clearSonnetHistory()
                 appState.sonnetUsageHistory.removeAll()
+            }
+        }
+
+        // Auto-restart Sonnet quota after reset.
+        // Condition: we previously tracked a Sonnet window, and the current
+        // server-side window is either missing or already expired — meaning
+        // the old window has ended and no new one has been opened yet.
+        // Sends a single "hi" message to kick off a fresh window.
+        let currentSonnetReset = appState.sonnetResetDate
+        let hadPreviousWindow = previousSonnetReset != nil
+        let currentWindowIsStale = currentSonnetReset == nil || (currentSonnetReset.map { $0 <= Date() } ?? true)
+        if hadPreviousWindow, currentWindowIsStale, !isRestartingSonnet {
+            isRestartingSonnet = true
+            Task { @MainActor [weak self] in
+                await self?.onSonnetResetDetected?()
+                self?.isRestartingSonnet = false
             }
         }
 
