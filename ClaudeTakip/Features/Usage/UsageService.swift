@@ -9,7 +9,6 @@ final class UsageService {
     private var pollingTimer: Timer?
     private let networkMonitor = NWPathMonitor()
     private var isNetworkAvailable = true
-    private var isRestartingSonnet = false
     var onSessionExpired: (() -> Void)?
     var onSonnetResetDetected: (() async -> Void)?
 
@@ -226,15 +225,14 @@ final class UsageService {
         // Condition: we previously tracked a Sonnet window, and the current
         // server-side window is either missing or already expired — meaning
         // the old window has ended and no new one has been opened yet.
-        // Sends a single "hi" message to kick off a fresh window.
+        // Fires the callback, which is throttled + in-flight-guarded downstream
+        // in AutoSessionService.pingSonnet(), so spamming here is harmless.
         let currentSonnetReset = appState.sonnetResetDate
         let hadPreviousWindow = previousSonnetReset != nil
         let currentWindowIsStale = currentSonnetReset == nil || (currentSonnetReset.map { $0 <= Date() } ?? true)
-        if hadPreviousWindow, currentWindowIsStale, !isRestartingSonnet {
-            isRestartingSonnet = true
+        if hadPreviousWindow, currentWindowIsStale {
             Task { @MainActor [weak self] in
                 await self?.onSonnetResetDetected?()
-                self?.isRestartingSonnet = false
             }
         }
 

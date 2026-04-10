@@ -9,9 +9,12 @@ final class AutoSessionService {
     private let authManager: AuthManager
     private let notesManager: NotesManager
     private var pingTask: Task<Void, Never>?
+    private var isSonnetPingInFlight = false
     var onPingCompleted: (() async -> Void)?
 
     private let pingInterval: TimeInterval = 600 // 10 minutes
+    private let sonnetPingMinInterval: TimeInterval = 3600 // 1 hour throttle
+    private let lastSonnetPingKey = "lastSonnetPingDate"
 
     init(appState: AppState, authManager: AuthManager, notesManager: NotesManager) {
         self.appState = appState
@@ -53,26 +56,50 @@ final class AutoSessionService {
     // MARK: - Sonnet Auto-Restart
 
     /// Sends a single "hi" message using the Sonnet model to auto-start a fresh
-    /// Sonnet quota window after reset. Analogous to the Haiku-based session ping.
+    /// Sonnet quota window. Throttled to at most once per hour and guarded
+    /// against concurrent execution. Called at login, on reset detection, and
+    /// on app startup — the throttle ensures only one of those actually fires.
     func pingSonnet() async {
-        await ping(model: "claude-sonnet-4-5-20250929", label: "Sonnet")
+        guard !isSonnetPingInFlight else {
+            NSLog("[AutoSession] Sonnet ping already in flight, skipping")
+            return
+        }
+
+        if let last = UserDefaults.standard.object(forKey: lastSonnetPingKey) as? Date {
+            let elapsed = Date().timeIntervalSince(last)
+            if elapsed < sonnetPingMinInterval {
+                NSLog("[AutoSession] Sonnet ping throttled (%.0fs since last)", elapsed)
+                return
+            }
+        }
+
+        isSonnetPingInFlight = true
+        let success = await ping(model: "claude-sonnet-4-5-20250929", label: "Sonnet")
+        isSonnetPingInFlight = false
+
+        if success {
+            UserDefaults.standard.set(Date(), forKey: lastSonnetPingKey)
+        }
     }
 
     // MARK: - Ping
 
-    private func ping(model: String, label: String) async {
+    @discardableResult
+    private func ping(model: String, label: String) async -> Bool {
         guard let sessionKey = authManager.getSessionKey(),
               let orgId = appState.organizationId else {
             NSLog("[AutoSession] No credentials, skipping %@ ping", label)
-            return
+            return false
         }
 
         NSLog("[AutoSession] %@ ping starting", label)
         var convId: String?
+        var success = false
         do {
             convId = try await createConversation(sessionKey: sessionKey, orgId: orgId)
             guard let id = convId else { throw AutoSessionError.createFailed }
             try await sendMessage(sessionKey: sessionKey, orgId: orgId, convId: id, model: model)
+            success = true
             NSLog("[AutoSession] %@ ping successful", label)
         } catch {
             NSLog("[AutoSession] %@ ping FAILED: %@", label, String(describing: error))
@@ -83,6 +110,7 @@ final class AutoSessionService {
         }
 
         await onPingCompleted?()
+        return success
     }
 
     // MARK: - API Calls

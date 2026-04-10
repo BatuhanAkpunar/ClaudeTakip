@@ -332,7 +332,7 @@ struct MenuBarView: View {
                 .font(.system(size: 9.5, weight: .bold))
                 .tracking(0.5)
                 .foregroundStyle(.primary.opacity(0.70))
-                .frame(width: 48, alignment: .leading)
+                .frame(width: 95, alignment: .leading)
 
             ZStack(alignment: .leading) {
                 Capsule()
@@ -342,10 +342,10 @@ struct MenuBarView: View {
                         colors: [DT.Colors.sonnetPurple.opacity(0.55), DT.Colors.sonnetPurple],
                         startPoint: .leading, endPoint: .trailing
                     ))
-                    .frame(width: 170 * max(0, min(1, rv(viewModel.sonnetBarProgress))))
+                    .frame(width: 120 * max(0, min(1, rv(viewModel.sonnetBarProgress))))
                     .animation(DT.Animation.barFill, value: rv(viewModel.sonnetBarProgress))
             }
-            .frame(width: 170, height: 11)
+            .frame(width: 120, height: 11)
 
             Text("\(Int(rv(viewModel.sonnetBarProgress) * 100))%")
                 .font(.system(size: 12, weight: .bold, design: .rounded))
@@ -409,9 +409,10 @@ struct MenuBarView: View {
                             .foregroundStyle(unlimitedBlue.opacity(0.85))
                     }
                 }
-                .fixedSize(horizontal: true, vertical: false)
+                .lineLimit(1)
+                .minimumScaleFactor(0.8)
             }
-            .frame(width: 48, alignment: .leading)
+            .frame(width: 95, alignment: .leading)
 
             if viewModel.isExtraUnlimited {
                 HStack(spacing: 4) {
@@ -428,7 +429,7 @@ struct MenuBarView: View {
                 .padding(.horizontal, 8)
                 .padding(.vertical, 3)
                 .background(unlimitedBlue.opacity(0.10), in: Capsule())
-                .frame(width: 170, alignment: .leading)
+                .frame(width: 120, alignment: .leading)
             } else {
                 ZStack(alignment: .leading) {
                     Capsule()
@@ -439,11 +440,11 @@ struct MenuBarView: View {
                                 colors: [DT.Colors.claudeAccent.opacity(0.55), DT.Colors.claudeAccent],
                                 startPoint: .leading, endPoint: .trailing
                             ))
-                            .frame(width: 170 * max(0, min(1, rv(viewModel.extraUsageProgress))))
+                            .frame(width: 120 * max(0, min(1, rv(viewModel.extraUsageProgress))))
                             .animation(DT.Animation.barFill, value: rv(viewModel.extraUsageProgress))
                     }
                 }
-                .frame(width: 170, height: 11)
+                .frame(width: 120, height: 11)
 
                 Text("\(Int(rv(viewModel.extraUsageProgress) * 100))%")
                     .font(.system(size: 12, weight: .bold, design: .rounded))
