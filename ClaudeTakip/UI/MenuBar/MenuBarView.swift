@@ -334,30 +334,27 @@ struct MenuBarView: View {
                 .foregroundStyle(.primary.opacity(0.70))
                 .frame(width: 48, alignment: .leading)
 
-            GeometryReader { geo in
-                ZStack(alignment: .leading) {
-                    Capsule()
-                        .fill(Color.primary.opacity(0.10))
-                    Capsule()
-                        .fill(LinearGradient(
-                            colors: [DT.Colors.sonnetPurple.opacity(0.55), DT.Colors.sonnetPurple],
-                            startPoint: .leading, endPoint: .trailing
-                        ))
-                        .frame(width: geo.size.width * max(0, min(1, rv(viewModel.sonnetBarProgress))))
-                        .animation(DT.Animation.barFill, value: rv(viewModel.sonnetBarProgress))
-                }
+            ZStack(alignment: .leading) {
+                Capsule()
+                    .fill(Color.primary.opacity(0.10))
+                Capsule()
+                    .fill(LinearGradient(
+                        colors: [DT.Colors.sonnetPurple.opacity(0.55), DT.Colors.sonnetPurple],
+                        startPoint: .leading, endPoint: .trailing
+                    ))
+                    .frame(width: 170 * max(0, min(1, rv(viewModel.sonnetBarProgress))))
+                    .animation(DT.Animation.barFill, value: rv(viewModel.sonnetBarProgress))
             }
-            .frame(height: 11)
-            .padding(.leading, 49)
+            .frame(width: 170, height: 11)
 
             Text("\(Int(rv(viewModel.sonnetBarProgress) * 100))%")
                 .font(.system(size: 12, weight: .bold, design: .rounded))
                 .foregroundStyle(DT.Colors.sonnetPurple)
                 .frame(width: 30, alignment: .leading)
 
-            Spacer()
+            Spacer(minLength: 0)
 
-            // Hourglass + single-line time
+            // Hourglass + single-line time — independent of the fixed bar width
             let lines = viewModel.sonnetResetLines
             HStack(spacing: 4) {
                 if !lines.0.isEmpty {
@@ -431,26 +428,22 @@ struct MenuBarView: View {
                 .padding(.horizontal, 8)
                 .padding(.vertical, 3)
                 .background(unlimitedBlue.opacity(0.10), in: Capsule())
-                .padding(.leading, 49)
-                Spacer()
+                .frame(width: 170, alignment: .leading)
             } else {
-                GeometryReader { geo in
-                    ZStack(alignment: .leading) {
+                ZStack(alignment: .leading) {
+                    Capsule()
+                        .fill(Color.primary.opacity(0.10))
+                    if rv(viewModel.extraUsageProgress) > 0.01 {
                         Capsule()
-                            .fill(Color.primary.opacity(0.10))
-                        if rv(viewModel.extraUsageProgress) > 0.01 {
-                            Capsule()
-                                .fill(LinearGradient(
-                                    colors: [DT.Colors.claudeAccent.opacity(0.55), DT.Colors.claudeAccent],
-                                    startPoint: .leading, endPoint: .trailing
-                                ))
-                                .frame(width: geo.size.width * max(0, min(1, rv(viewModel.extraUsageProgress))))
-                                .animation(DT.Animation.barFill, value: rv(viewModel.extraUsageProgress))
-                        }
+                            .fill(LinearGradient(
+                                colors: [DT.Colors.claudeAccent.opacity(0.55), DT.Colors.claudeAccent],
+                                startPoint: .leading, endPoint: .trailing
+                            ))
+                            .frame(width: 170 * max(0, min(1, rv(viewModel.extraUsageProgress))))
+                            .animation(DT.Animation.barFill, value: rv(viewModel.extraUsageProgress))
                     }
                 }
-                .frame(height: 11)
-                .padding(.leading, 49)
+                .frame(width: 170, height: 11)
 
                 Text("\(Int(rv(viewModel.extraUsageProgress) * 100))%")
                     .font(.system(size: 12, weight: .bold, design: .rounded))
@@ -458,9 +451,9 @@ struct MenuBarView: View {
                     .frame(width: 30, alignment: .leading)
             }
 
-            Spacer()
+            Spacer(minLength: 0)
 
-            // Hourglass + single-line time
+            // Hourglass + single-line time — independent of the fixed bar width
             let lines = viewModel.extraResetLines
             HStack(spacing: 4) {
                 if !lines.0.isEmpty {

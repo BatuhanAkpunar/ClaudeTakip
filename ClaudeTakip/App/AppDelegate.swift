@@ -187,6 +187,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         usageService.onSessionExpired = { [weak self] in
             self?.handleSessionExpired()
         }
+        usageService.onSonnetResetDetected = { [weak self] in
+            await self?.autoSessionService.pingSonnet()
+            await self?.usageService.fetchUsage()
+        }
         autoSessionService.onPingCompleted = { [weak self] in
             await self?.usageService.fetchUsage()
         }
