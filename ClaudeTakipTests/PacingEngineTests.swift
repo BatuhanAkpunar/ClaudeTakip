@@ -14,9 +14,7 @@ import Testing
             currentUsage: 0.42,
             previousUsage: 0.41,
             totalWindowMinutes: totalWindow,
-            remainingMinutes: 180,
-            pollIntervalMinutes: 3
-        )
+            remainingMinutes: 180        )
         #expect(result == .steady)
     }
 
@@ -28,9 +26,7 @@ import Testing
             currentUsage: 0.40,
             previousUsage: 0.40,
             totalWindowMinutes: totalWindow,
-            remainingMinutes: 180,
-            pollIntervalMinutes: 3
-        )
+            remainingMinutes: 180        )
         #expect(result == .comfortable)
     }
 
@@ -41,9 +37,7 @@ import Testing
             currentUsage: 0.50,
             previousUsage: 0.50,
             totalWindowMinutes: totalWindow,
-            remainingMinutes: 180,
-            pollIntervalMinutes: 3
-        )
+            remainingMinutes: 180        )
         #expect(result == .moderate)
     }
 
@@ -54,9 +48,7 @@ import Testing
             currentUsage: 0.60,
             previousUsage: 0.60,
             totalWindowMinutes: totalWindow,
-            remainingMinutes: 180,
-            pollIntervalMinutes: 3
-        )
+            remainingMinutes: 180        )
         #expect(result == .elevated)
     }
 
@@ -67,9 +59,7 @@ import Testing
             currentUsage: 0.80,
             previousUsage: 0.80,
             totalWindowMinutes: totalWindow,
-            remainingMinutes: 94,
-            pollIntervalMinutes: 3
-        )
+            remainingMinutes: 94        )
         #expect(result == .moderate)
     }
 
@@ -80,9 +70,7 @@ import Testing
             currentUsage: 0.70,
             previousUsage: 0.70,
             totalWindowMinutes: totalWindow,
-            remainingMinutes: 180,
-            pollIntervalMinutes: 3
-        )
+            remainingMinutes: 180        )
         #expect(result == .high)
     }
 
@@ -93,9 +81,7 @@ import Testing
             currentUsage: 0.90,
             previousUsage: 0.90,
             totalWindowMinutes: totalWindow,
-            remainingMinutes: 180,
-            pollIntervalMinutes: 3
-        )
+            remainingMinutes: 180        )
         #expect(result == .critical)
     }
 
@@ -108,9 +94,7 @@ import Testing
             currentUsage: 0.42,
             previousUsage: 0.39,
             totalWindowMinutes: totalWindow,
-            remainingMinutes: 180,
-            pollIntervalMinutes: 3
-        )
+            remainingMinutes: 180        )
         #expect(result == .high)
     }
 
@@ -121,9 +105,7 @@ import Testing
             currentUsage: 0.45,
             previousUsage: 0.40,
             totalWindowMinutes: totalWindow,
-            remainingMinutes: 180,
-            pollIntervalMinutes: 3
-        )
+            remainingMinutes: 180        )
         #expect(result == .critical)
     }
 
@@ -132,9 +114,7 @@ import Testing
             currentUsage: 0.42,
             previousUsage: nil,
             totalWindowMinutes: totalWindow,
-            remainingMinutes: 180,
-            pollIntervalMinutes: 3
-        )
+            remainingMinutes: 180        )
         #expect(result == .unknown)
     }
 
@@ -143,9 +123,7 @@ import Testing
             currentUsage: 0.42,
             previousUsage: 0.40,
             totalWindowMinutes: totalWindow,
-            remainingMinutes: 5,
-            pollIntervalMinutes: 3
-        )
+            remainingMinutes: 5        )
         #expect(result == .comfortable)
     }
 
@@ -154,9 +132,7 @@ import Testing
             currentUsage: 0.95,
             previousUsage: 0.93,
             totalWindowMinutes: totalWindow,
-            remainingMinutes: 5,
-            pollIntervalMinutes: 3
-        )
+            remainingMinutes: 5        )
         #expect(result == .critical)
     }
 
@@ -166,9 +142,7 @@ import Testing
             currentUsage: 0.80,
             previousUsage: 0.78,
             totalWindowMinutes: totalWindow,
-            remainingMinutes: 5,
-            pollIntervalMinutes: 3
-        )
+            remainingMinutes: 5        )
         #expect(result == .high)
     }
 
@@ -177,9 +151,7 @@ import Testing
             currentUsage: 0.05,
             previousUsage: 0.80,
             totalWindowMinutes: totalWindow,
-            remainingMinutes: 300,
-            pollIntervalMinutes: 3
-        )
+            remainingMinutes: 300        )
         #expect(result == .comfortable)
     }
 
@@ -191,9 +163,7 @@ import Testing
             currentUsage: 0.41,
             previousUsage: 0.408,
             totalWindowMinutes: totalWindow,
-            remainingMinutes: 180,
-            pollIntervalMinutes: 3
-        )
+            remainingMinutes: 180        )
         #expect(result == .comfortable)
     }
 
@@ -205,9 +175,7 @@ import Testing
             currentUsage: 0.44,
             previousUsage: 0.44,
             totalWindowMinutes: totalWindow,
-            remainingMinutes: 180,
-            pollIntervalMinutes: 3
-        )
+            remainingMinutes: 180        )
         #expect(result == .steady)
     }
 

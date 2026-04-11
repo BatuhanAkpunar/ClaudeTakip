@@ -22,9 +22,6 @@ import Testing
         let usage = try UsageResponseParser.parse(json)
         #expect(abs(usage.fiveHourUtilization - 0.50) < 0.001)
         #expect(abs(usage.sevenDayUtilization - 0.10) < 0.001)
-        #expect(usage.opusUtilization != nil)
-        #expect(abs(usage.opusUtilization! - 0.05) < 0.001)
-        #expect(usage.opusResetsAt != nil)
     }
 
     @Test func parseFullAPIResponse() throws {
@@ -38,9 +35,6 @@ import Testing
         #expect(usage.sonnetUtilization != nil)
         #expect(abs(usage.sonnetUtilization! - 0.01) < 0.001)
         #expect(usage.sonnetResetsAt != nil)
-        #expect(usage.opusUtilization != nil)
-        #expect(usage.opusUtilization! == 0.0)
-        #expect(usage.opusResetsAt == nil)
         #expect(usage.extraUsage != nil)
         #expect(usage.extraUsage?.isEnabled == false)
         #expect(usage.extraUsage?.monthlyLimit == nil)
