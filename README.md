@@ -97,4 +97,3 @@ Requires Xcode 16+ and Swift 6.
 
 - 🌐 **Website:** [claudetakip.vercel.app](https://claudetakip.vercel.app)
 - 👤 **Author:** Batuhan Akpunar — [LinkedIn](https://www.linkedin.com/in/batuhanakpunar/)
-- 📝 **License:** All rights reserved. See [LICENSE](LICENSE) for details.
