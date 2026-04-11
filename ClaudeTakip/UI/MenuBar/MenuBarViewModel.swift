@@ -135,6 +135,32 @@ final class MenuBarViewModel {
         return depletion < reset
     }
 
+    /// Predicted date the weekly quota hits 100% assuming the current burn rate
+    /// holds. Uses effectiveUsage (absolute weeklyUsage minus the baseline set
+    /// at the start of the week) so a partial-week rollover doesn't skew the
+    /// projection. Guards match the session version but scale the minimum
+    /// elapsed window (1 hour) to the weekly window's coarser polling.
+    var weeklyPredictedDepletionDate: Date? {
+        _ = clockTick
+        guard let resetDate = appState.weeklyResetDate, resetDate > Date() else { return nil }
+        let usage = appState.weeklyUsage
+        guard usage < 1.0 else { return nil }
+
+        let effectiveUsage = max(0, usage - appState.weeklyResetBaselineUsage)
+        guard effectiveUsage > 0.01 else { return nil }
+
+        let totalWindow = TimingConstants.weeklyWindowDuration
+        let remaining = resetDate.timeIntervalSince(Date())
+        let elapsed = totalWindow - remaining
+        guard elapsed > 3600 else { return nil }
+
+        let rate = effectiveUsage / elapsed
+        guard rate > 0 else { return nil }
+
+        let secondsToFull = (1.0 - usage) / rate
+        return Date().addingTimeInterval(secondsToFull)
+    }
+
     // MARK: - Weekly Smart Color
 
     var weeklySmartColor: Color {

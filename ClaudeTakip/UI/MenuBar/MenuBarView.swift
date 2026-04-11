@@ -647,7 +647,7 @@ struct MenuBarView: View {
                         windowDuration: TimingConstants.weeklyWindowDuration,
                         color: DT.Colors.statusGreen,
                         xLabels: viewModel.weeklyDayLabels,
-                        predictedDepletionDate: nil,
+                        predictedDepletionDate: viewModel.weeklyRate > 1.0 ? viewModel.weeklyPredictedDepletionDate : nil,
                         showCapMarker: viewModel.appState.weeklyUsage >= 1.0
                     )
                 }
