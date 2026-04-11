@@ -289,10 +289,12 @@ struct DetailedChartView: View {
 
     // MARK: - Cap-Reached Marker
 
-    /// Draws a vertical freeze line and "Limit reached" label at the last
-    /// recorded snapshot. Used when the quota hit 100% and the chart should
-    /// stop tracking — the marker visually anchors where the cap landed so
-    /// the flat-line at the top doesn't look like live data.
+    /// Draws a vertical freeze line at the last recorded snapshot and a
+    /// "Limit reached" label pinned to the bottom-right of the chart. Used
+    /// when the quota hit 100% and the chart should stop tracking — the
+    /// freeze line visually anchors where the cap landed so the flat-line at
+    /// the top doesn't look like live data, while the bottom-right label
+    /// mirrors the "Estimated Overrun" placement for consistency.
     private func drawCapMarker(
         in context: inout GraphicsContext,
         lastPoint: CGPoint,
@@ -310,17 +312,13 @@ struct DetailedChartView: View {
             style: StrokeStyle(lineWidth: 1.2, dash: [3, 3])
         )
 
-        // "Limit reached" label — placed to the left of the freeze line by
-        // default (cap is usually near the right edge). Flip to the right if
-        // the line is too close to the left edge instead.
+        // "Limit reached" label — bottom-right of chart, matching the
+        // placement used by drawProjection for "Estimated Overrun".
         let label = Text(String(localized: "Limit reached", bundle: .app))
             .font(.system(size: 10, weight: .semibold))
             .foregroundColor(markerColor)
         let resolved = context.resolve(label)
-        let preferLeft = lastPoint.x > w * 0.35
-        let labelX = preferLeft ? (lastPoint.x - 4) : (lastPoint.x + 4)
-        let anchor: UnitPoint = preferLeft ? .trailing : .leading
-        context.draw(resolved, at: CGPoint(x: labelX, y: topPad + 6), anchor: anchor)
+        context.draw(resolved, at: CGPoint(x: w - 4, y: bottom - 8), anchor: .trailing)
     }
 
     // MARK: - Smooth Curve (Catmull-Rom)
