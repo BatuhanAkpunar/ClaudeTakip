@@ -56,6 +56,15 @@ final class UsageCacheStore {
     private static let maxWeeklyHistory = 500
     private static let maxModelHistory = 200
 
+    /// When false, all disk writes are skipped. Used by unit tests so cache
+    /// operations stay fully in-memory and don't clobber the production
+    /// cache file at ~/Library/Application Support/ClaudeTakip/.
+    private let persistToDisk: Bool
+
+    init(persistToDisk: Bool = true) {
+        self.persistToDisk = persistToDisk
+    }
+
     private func fileURL() -> URL {
         if let orgId {
             return Self.directoryURL.appendingPathComponent("usage-cache-\(orgId).json")
@@ -149,18 +158,24 @@ final class UsageCacheStore {
     // MARK: - Record Snapshots
 
     func recordSessionSnapshot(usage: Double) {
+        // Cap guard: once the last recorded snapshot hit the cap, stop recording.
+        // The chart should freeze at the moment the quota was exhausted instead of
+        // drawing a horizontal line until the window ends.
+        if let last = cache.sessionHistory.last, last.usage >= 1.0 { return }
         cache.sessionHistory.append(UsageSnapshot(timestamp: Date(), usage: usage))
         trimIfNeeded(&cache.sessionHistory, max: Self.maxSessionHistory)
         markDirty()
     }
 
     func recordWeeklySnapshot(usage: Double) {
+        if let last = cache.weeklyHistory.last, last.usage >= 1.0 { return }
         cache.weeklyHistory.append(UsageSnapshot(timestamp: Date(), usage: usage))
         trimIfNeeded(&cache.weeklyHistory, max: Self.maxWeeklyHistory)
         markDirty()
     }
 
     func recordSonnetSnapshot(usage: Double) {
+        if let last = cache.sonnetHistory.last, last.usage >= 1.0 { return }
         cache.sonnetHistory.append(UsageSnapshot(timestamp: Date(), usage: usage))
         trimIfNeeded(&cache.sonnetHistory, max: Self.maxModelHistory)
         markDirty()
@@ -209,6 +224,10 @@ final class UsageCacheStore {
     }
 
     private func writeToDisk() {
+        guard persistToDisk else {
+            lastWriteDate = Date()
+            return
+        }
         do {
             let fm = FileManager.default
             if !fm.fileExists(atPath: Self.directoryURL.path) {
