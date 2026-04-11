@@ -637,7 +637,8 @@ struct MenuBarView: View {
                         windowDuration: TimingConstants.sessionWindowDuration,
                         color: DT.Colors.statusGreen,
                         xLabels: viewModel.sessionHourLabels,
-                        predictedDepletionDate: viewModel.sessionRate > 1.0 ? viewModel.predictedDepletionDate : nil
+                        predictedDepletionDate: viewModel.sessionRate > 1.0 ? viewModel.predictedDepletionDate : nil,
+                        showCapMarker: viewModel.appState.sessionUsage >= 1.0
                     )
                 case .weekly:
                     DetailedChartView(
@@ -646,7 +647,8 @@ struct MenuBarView: View {
                         windowDuration: TimingConstants.weeklyWindowDuration,
                         color: DT.Colors.statusGreen,
                         xLabels: viewModel.weeklyDayLabels,
-                        predictedDepletionDate: nil
+                        predictedDepletionDate: nil,
+                        showCapMarker: viewModel.appState.weeklyUsage >= 1.0
                     )
                 }
             }

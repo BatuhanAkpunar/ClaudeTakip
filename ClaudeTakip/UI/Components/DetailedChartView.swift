@@ -7,6 +7,7 @@ struct DetailedChartView: View {
     let color: Color
     let xLabels: [String]
     let predictedDepletionDate: Date?
+    var showCapMarker: Bool = false
 
     @Environment(\.colorScheme) private var colorScheme
 
@@ -163,6 +164,11 @@ struct DetailedChartView: View {
 
         // --- Projection line ---
         drawProjection(in: &context, points: points, w: w, topPad: topPad, bottom: bottom)
+
+        // --- Cap-reached marker ---
+        if showCapMarker, let last = points.last {
+            drawCapMarker(in: &context, lastPoint: last, w: w, topPad: topPad, bottom: bottom)
+        }
     }
 
     // MARK: - Excess Areas
@@ -279,6 +285,42 @@ struct DetailedChartView: View {
         let labelX = w - 4
         context.draw(resolved1, at: CGPoint(x: labelX, y: bottom - 18), anchor: .trailing)
         context.draw(resolved2, at: CGPoint(x: labelX, y: bottom - 8), anchor: .trailing)
+    }
+
+    // MARK: - Cap-Reached Marker
+
+    /// Draws a vertical freeze line and "Limit reached" label at the last
+    /// recorded snapshot. Used when the quota hit 100% and the chart should
+    /// stop tracking — the marker visually anchors where the cap landed so
+    /// the flat-line at the top doesn't look like live data.
+    private func drawCapMarker(
+        in context: inout GraphicsContext,
+        lastPoint: CGPoint,
+        w: CGFloat, topPad: CGFloat, bottom: CGFloat
+    ) {
+        let markerColor = DT.Colors.statusRed
+
+        // Vertical dashed freeze line
+        var line = Path()
+        line.move(to: CGPoint(x: lastPoint.x, y: topPad))
+        line.addLine(to: CGPoint(x: lastPoint.x, y: bottom))
+        context.stroke(
+            line,
+            with: .color(markerColor.opacity(0.55)),
+            style: StrokeStyle(lineWidth: 1.2, dash: [3, 3])
+        )
+
+        // "Limit reached" label — placed to the left of the freeze line by
+        // default (cap is usually near the right edge). Flip to the right if
+        // the line is too close to the left edge instead.
+        let label = Text(String(localized: "Limit reached", bundle: .app))
+            .font(.system(size: 10, weight: .semibold))
+            .foregroundColor(markerColor)
+        let resolved = context.resolve(label)
+        let preferLeft = lastPoint.x > w * 0.35
+        let labelX = preferLeft ? (lastPoint.x - 4) : (lastPoint.x + 4)
+        let anchor: UnitPoint = preferLeft ? .trailing : .leading
+        context.draw(resolved, at: CGPoint(x: labelX, y: topPad + 6), anchor: anchor)
     }
 
     // MARK: - Smooth Curve (Catmull-Rom)
