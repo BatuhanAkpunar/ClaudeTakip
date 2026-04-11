@@ -4,69 +4,97 @@
 
 <h1 align="center">ClaudeTakip</h1>
 
-<p align="center">A macOS menu bar app that tracks your Claude AI usage limits in real time.</p>
+<p align="center">
+  Track your Claude AI usage limits live, right from your macOS menu bar.
+</p>
 
-## Features
+<p align="center">
+  <a href="https://github.com/BatuhanAkpunar/ClaudeTakip/releases/latest">
+    <img src="https://img.shields.io/github/v/release/BatuhanAkpunar/ClaudeTakip?color=blueviolet&label=release" alt="Release">
+  </a>
+  <a href="https://claudetakip.vercel.app">
+    <img src="https://img.shields.io/badge/website-claudetakip.vercel.app-orange" alt="Website">
+  </a>
+  <img src="https://img.shields.io/badge/platform-macOS%2015%2B-lightgrey" alt="Platform">
+</p>
 
-- **Real-time usage tracking** — monitors your 5-hour session and 7-day weekly limits
-- **Model-specific tracking** — separate Sonnet usage bar with reset countdown
-- **Extra usage monitoring** — tracks overage billing balance and spending
-- **Account panel** — view your account details, email, plan, subscription status, and spending
-- **AI-powered pacing** — intelligent recommendations based on your usage velocity
-- **Usage rate analysis** — speedometer gauges showing session and weekly pace
-- **Interactive charts** — detailed usage history with session and weekly views
-- **Auto-session** — automatically starts a new session window when the current one expires
-- **System status** — live Claude API status indicator
-- **14 languages** — English, Turkish, Spanish, French, German, Italian, Dutch, Japanese, Korean, Simplified Chinese, Traditional Chinese, Russian, Arabic, Portuguese (BR)
-- **Dark mode** — follows system appearance, configurable per-app
-- **Auto-update** — built-in update mechanism via Sparkle
+---
 
-## Requirements
+## 🎯 What is ClaudeTakip?
 
-- macOS 15.0 Sequoia or later
+ClaudeTakip is a macOS menu bar app that shows your **Claude Pro / Max usage limits in real time** — 5-hour session window, 7-day weekly quota, Sonnet usage, and overage spending — all in one compact dashboard.
 
-## Installation
+> 🔒 **Runs 100% locally.** Your data never leaves your Mac. No servers, no analytics, no tracking.
 
-### DMG
+## ✨ Features
 
-Download the latest `.dmg` from [Releases](https://github.com/BatuhanAkpunar/ClaudeTakip/releases), open it, and drag ClaudeTakip to your Applications folder.
+- 📊 **Real-time tracking** — 5-hour session + 7-day weekly limits
+- 🎯 **Burn rate gauges** — session & weekly pace speedometers
+- 🤖 **AI recommendations** — pacing advice powered by Groq
+- 📈 **Interactive charts** — detailed usage history
+- 💳 **Overage tracking** — balance and extra-usage spending
+- 🔁 **Auto-session** — automatically starts a new session when yours expires
+- 🌙 **Dark mode** — follows system, configurable per-app
+- 🌍 **14 languages** — EN, TR, ES, FR, DE, IT, NL, JA, KO, ZH-Hans, ZH-Hant, RU, AR, PT-BR
+- 🔄 **Auto-update** — silent updates via Sparkle
 
-## Usage
+## 🔄 How It Works
+
+<p align="center">
+  <img src="demo.gif" alt="ClaudeTakip demo" width="640">
+</p>
+
+1. Click the **ClaudeTakip icon** in your menu bar
+2. Sign in with your **Claude account** (email or Google)
+3. ClaudeTakip polls `claude.ai` every **3 minutes**
+4. Usage is **cached locally** on your Mac and displayed live
+
+All data stays on your Mac — nothing is sent to third-party servers.
+
+## 📦 Installation
+
+### DMG (recommended)
+
+Download the latest `.dmg` from the [Releases page](https://github.com/BatuhanAkpunar/ClaudeTakip/releases/latest), open it, and drag ClaudeTakip into your Applications folder.
+
+### npm
+
+```bash
+npx claudetakip@latest
+```
+
+**Requirement:** macOS 15.0 Sequoia or later.
+
+## 🚀 Usage
 
 1. Click the ClaudeTakip icon in your menu bar
 2. Sign in with your Claude account (email or Google)
-3. Your usage limits, pacing, and history are displayed automatically
+3. Your usage limits, pace, and history are displayed automatically
 
-## How It Works
-
-ClaudeTakip reads your usage data from your Claude account and displays it in a compact menu bar dashboard. It polls your usage every 3 minutes and provides AI-powered recommendations to help you manage your limits effectively.
-
-**No data is collected or sent to third parties.** All usage data stays on your device.
-
-## Build from Source
+## 🛠️ Build from Source
 
 ```bash
-# Install XcodeGen if needed
 brew install xcodegen
+```
 
-# Generate Xcode project and build
+Then generate the Xcode project and open it:
+
+```bash
 xcodegen generate
-xcodebuild -project ClaudeTakip.xcodeproj -scheme ClaudeTakip -configuration Release build
+open ClaudeTakip.xcodeproj
 ```
 
 Requires Xcode 16+ and Swift 6.
 
-## Privacy
+## 🔐 Privacy
 
-- ClaudeTakip only communicates with `claude.ai` (your usage data) and `status.claude.com` (system status)
-- AI recommendations are generated via Groq API using anonymized usage percentages only
-- Credentials are stored locally on your device with restricted file permissions
-- No analytics, telemetry, or tracking of any kind
+- Talks only to `claude.ai` (usage data) and `status.claude.com` (system status)
+- AI recommendations use **anonymized usage percentages** via Groq — no account info is sent
+- Credentials are stored locally on your Mac with restricted file permissions
+- **No analytics, no telemetry, no tracking** of any kind
 
-## License
+## ℹ️ About
 
-All rights reserved. See [LICENSE](LICENSE) for details.
-
-## Author
-
-**Batuhan Akpunar** — [LinkedIn](https://www.linkedin.com/in/batuhanakpunar/)
+- 🌐 **Website:** [claudetakip.vercel.app](https://claudetakip.vercel.app)
+- 👤 **Author:** Batuhan Akpunar — [LinkedIn](https://www.linkedin.com/in/batuhanakpunar/)
+- 📝 **License:** All rights reserved. See [LICENSE](LICENSE) for details.
