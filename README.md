@@ -18,6 +18,10 @@
   <img src="https://img.shields.io/badge/platform-macOS%2015%2B-lightgrey" alt="Platform">
 </p>
 
+<p align="center">
+  <img src="screenshot.png" alt="ClaudeTakip dashboard" width="400">
+</p>
+
 ---
 
 ## 🎯 What is ClaudeTakip?
