@@ -56,8 +56,6 @@ enum GroqClient: Sendable {
         """
 
     static func fetchMessage(context: String, language: String) async throws -> PacingMessage {
-        guard !GroqConstants.apiKey.isEmpty else { throw GroqError.invalidResponse }
-
         let languageInstruction: String
         switch language {
         case "tr": languageInstruction = "You MUST respond in Turkish."
@@ -92,7 +90,6 @@ enum GroqClient: Sendable {
         guard let url = URL(string: GroqConstants.baseURL) else { throw GroqError.invalidResponse }
         var request = URLRequest(url: url)
         request.httpMethod = "POST"
-        request.setValue("Bearer \(GroqConstants.apiKey)", forHTTPHeaderField: "Authorization")
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
         request.httpBody = try JSONSerialization.data(withJSONObject: body)
         request.timeoutInterval = 10
