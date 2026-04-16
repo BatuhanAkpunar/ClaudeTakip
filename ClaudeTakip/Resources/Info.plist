@@ -26,8 +26,6 @@
     <string>https://batuhanakpunar.github.io/ClaudeTakip/appcast.xml</string>
     <key>SUPublicEDKey</key>
     <string>7kbZCP4w8kBr2kYnYLIwDq0NLi5GJ9vRTs8eyuNF4Ws=</string>
-    <key>GROQ_API_KEY</key>
-    <string>$(GROQ_API_KEY)</string>
     <key>NSMainNibFile</key>
     <string></string>
 </dict>
