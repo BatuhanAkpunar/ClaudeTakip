@@ -247,6 +247,22 @@ final class UsageService {
     // MARK: - Snapshots
 
     private func recordSnapshots(_ usage: UsageData) {
+        // Drop snapshots left over from an expired window before recording.
+        // When the app is closed across a reset, the window-change cleanup in
+        // applyUsageToState() can't fire (it needs a previous reset date, which
+        // is nil right after launch), so stale entries survive in the cache.
+        // Those never render (chartPoints filters them out by window) and, if
+        // the last stale entry sat at the cap, keep recordWeeklySnapshot frozen
+        // — leaving the chart permanently empty. Pruning here repairs that on
+        // the next poll and resumes recording. Reset dates are already set by
+        // applyUsageToState(), which runs immediately before this.
+        if let sessionReset = appState.sessionResetDate {
+            cacheStore.pruneSessionHistory(before: sessionReset.addingTimeInterval(-TimingConstants.sessionWindowDuration))
+        }
+        if let weeklyReset = appState.weeklyResetDate {
+            cacheStore.pruneWeeklyHistory(before: weeklyReset.addingTimeInterval(-TimingConstants.weeklyWindowDuration))
+        }
+
         // Session
         cacheStore.recordSessionSnapshot(usage: usage.fiveHourUtilization)
         appState.usageHistory = cacheStore.cache.sessionHistory
@@ -273,11 +289,25 @@ final class UsageService {
         let c = cacheStore.cache
 
         // Only load histories — needed for charts
-        // Current values and hasLoadedUsage are not loaded,
-        // UI shows LoadingView until fresh API data arrives
+        // Current usage values and hasLoadedUsage are not loaded,
+        // UI shows LoadingView until fresh API data arrives (the chart is also
+        // gated on valuesRevealed, which only flips after hasLoadedUsage), so
+        // the restored reset date below has no visible effect before the first
+        // poll — it exists purely so that poll can detect a window change.
         appState.usageHistory = c.sessionHistory
         appState.weeklyUsageHistory = c.weeklyHistory
         appState.sonnetUsageHistory = c.sonnetHistory
+
+        // Restore the weekly reset date so the first poll after relaunch can
+        // tell whether the 7-day window rolled over while the app was closed.
+        // Without it, oldReset is nil on that poll, applyUsageToState() skips
+        // the window-change branch, and weeklyResetBaselineUsage stays pinned to
+        // the previous window — making weeklyRate/projection under-report until
+        // the next live reset. Only the weekly date is restored: the session
+        // chart self-heals (frequent resets + trim) and has no baseline, and
+        // restoring sonnetResetDate would make hadPreviousWindow true on launch,
+        // firing the Sonnet auto-restart ping unintentionally.
+        appState.weeklyResetDate = c.current.sevenDay?.resetsAt
 
         // Restore weekly baseline from previous session
         appState.weeklyResetBaselineUsage = UserDefaults.standard.double(forKey: "weeklyResetBaselineUsage")

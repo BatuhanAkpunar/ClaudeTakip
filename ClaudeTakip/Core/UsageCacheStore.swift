@@ -198,6 +198,32 @@ final class UsageCacheStore {
         forceFlush()
     }
 
+    // MARK: - Prune
+
+    /// Drops snapshots older than the current rolling window's start. Stale
+    /// entries left over from an expired window (e.g. the app was closed across
+    /// a reset) would otherwise never render — DetailedChartView filters points
+    /// by window — and, worse, if the last stale entry sat at the cap they keep
+    /// recordWeeklySnapshot/recordSessionSnapshot frozen, so fresh data is never
+    /// appended and the chart stays permanently empty. Safe to call every poll:
+    /// in-window data, including a legitimately capped tail, is never older than
+    /// the window start and so is preserved.
+    func pruneSessionHistory(before cutoff: Date) {
+        pruneHistory(&cache.sessionHistory, before: cutoff)
+    }
+
+    func pruneWeeklyHistory(before cutoff: Date) {
+        pruneHistory(&cache.weeklyHistory, before: cutoff)
+    }
+
+    private func pruneHistory(_ array: inout [UsageSnapshot], before cutoff: Date) {
+        let originalCount = array.count
+        array.removeAll { $0.timestamp < cutoff }
+        if array.count != originalCount {
+            markDirty()
+        }
+    }
+
     // MARK: - Flush
 
     func forceFlush() {
