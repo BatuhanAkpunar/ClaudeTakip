@@ -209,19 +209,23 @@ final class UsageCacheStore {
     /// in-window data, including a legitimately capped tail, is never older than
     /// the window start and so is preserved.
     func pruneSessionHistory(before cutoff: Date) {
-        pruneHistory(&cache.sessionHistory, before: cutoff)
+        if pruneHistory(&cache.sessionHistory, before: cutoff) { markDirty() }
     }
 
     func pruneWeeklyHistory(before cutoff: Date) {
-        pruneHistory(&cache.weeklyHistory, before: cutoff)
+        if pruneHistory(&cache.weeklyHistory, before: cutoff) { markDirty() }
     }
 
-    private func pruneHistory(_ array: inout [UsageSnapshot], before cutoff: Date) {
+    // Returns true if any entries were removed. markDirty() must be called by
+    // the caller — NOT inside this function — because the inout parameter holds
+    // an exclusive write lock on the array (which lives inside self.cache), and
+    // markDirty() → writeToDisk() accesses self.cache, causing a Swift
+    // exclusivity violation (SIGABRT) if called while the lock is still held.
+    @discardableResult
+    private func pruneHistory(_ array: inout [UsageSnapshot], before cutoff: Date) -> Bool {
         let originalCount = array.count
         array.removeAll { $0.timestamp < cutoff }
-        if array.count != originalCount {
-            markDirty()
-        }
+        return array.count != originalCount
     }
 
     // MARK: - Flush
