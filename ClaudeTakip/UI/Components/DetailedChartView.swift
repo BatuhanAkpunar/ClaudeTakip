@@ -359,12 +359,18 @@ struct DetailedChartView: View {
         guard let resetDate, !snapshots.isEmpty else { return [] }
         let windowStart = resetDate.addingTimeInterval(-windowDuration)
 
-        return snapshots.compactMap { snapshot in
+        var points: [CGPoint] = []
+        for snapshot in snapshots {
             let elapsed = snapshot.timestamp.timeIntervalSince(windowStart)
-            guard elapsed >= 0 else { return nil }
+            guard elapsed >= 0 else { continue }
             let xFraction = min(1, elapsed / windowDuration)
             let yFraction = max(0, min(1, snapshot.usage))
-            return CGPoint(x: width * xFraction, y: topPadding + usableHeight * (1 - yFraction))
+            points.append(CGPoint(x: width * xFraction, y: topPadding + usableHeight * (1 - yFraction)))
+            // Stop at the first snapshot that hit the cap so the line freezes
+            // at that moment. Any post-cap snapshots (stale cache from a version
+            // where the cap guard failed) are excluded from rendering.
+            if snapshot.usage >= 1.0 { break }
         }
+        return points
     }
 }

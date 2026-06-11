@@ -631,24 +631,26 @@ struct MenuBarView: View {
             if isChartExpanded {
                 switch selectedChartTab {
                 case .session:
+                    let sessionCapped = viewModel.appState.sessionUsage >= 1.0
                     DetailedChartView(
                         snapshots: valuesRevealed ? viewModel.appState.usageHistory : [],
                         resetDate: viewModel.appState.sessionResetDate,
                         windowDuration: TimingConstants.sessionWindowDuration,
                         color: DT.Colors.statusGreen,
                         xLabels: viewModel.sessionHourLabels,
-                        predictedDepletionDate: viewModel.sessionRate > 1.0 ? viewModel.predictedDepletionDate : nil,
-                        showCapMarker: viewModel.appState.sessionUsage >= 1.0
+                        predictedDepletionDate: !sessionCapped && viewModel.sessionRate > 1.0 ? viewModel.predictedDepletionDate : nil,
+                        showCapMarker: sessionCapped
                     )
                 case .weekly:
+                    let weeklyCapped = viewModel.appState.weeklyUsage >= 1.0
                     DetailedChartView(
                         snapshots: valuesRevealed ? viewModel.appState.weeklyUsageHistory : [],
                         resetDate: viewModel.appState.weeklyResetDate,
                         windowDuration: TimingConstants.weeklyWindowDuration,
                         color: DT.Colors.statusGreen,
                         xLabels: viewModel.weeklyDayLabels,
-                        predictedDepletionDate: viewModel.weeklyRate > 1.0 ? viewModel.weeklyPredictedDepletionDate : nil,
-                        showCapMarker: viewModel.appState.weeklyUsage >= 1.0
+                        predictedDepletionDate: !weeklyCapped && viewModel.weeklyRate > 1.0 ? viewModel.weeklyPredictedDepletionDate : nil,
+                        showCapMarker: weeklyCapped
                     )
                 }
             }
