@@ -32,7 +32,7 @@ struct WelcomeView: View {
             Spacer().frame(height: 14)
 
             Text("ClaudeTakip")
-                .font(.system(size: 22, weight: .bold, design: .rounded))
+                .font(.system(size: 22, weight: .bold))
                 .foregroundStyle(.primary)
 
             Spacer().frame(height: 8)
