@@ -28,10 +28,10 @@ struct SpeedometerGaugeView: View {
                 let clamped = min(max(rate, 0), 2.0)
                 HStack(alignment: .lastTextBaseline, spacing: 1) {
                     Text(rateNumber(clamped))
-                        .font(.system(size: 16.5, weight: .heavy, design: .rounded))
+                        .font(.system(size: 16.5, weight: .heavy))
                         .tracking(-0.5)
                     Text(rateSuffix(clamped))
-                        .font(.system(size: 11, weight: .bold, design: .rounded))
+                        .font(.system(size: 11, weight: .bold))
                         .foregroundStyle(rateColor(for: clamped).opacity(0.7))
                 }
                 .foregroundStyle(rateColor(for: clamped))
@@ -129,7 +129,7 @@ struct SpeedometerGaugeView: View {
                            style: StrokeStyle(lineWidth: 1.5, lineCap: .round))
 
             let idealLabel = Text("1x")
-                .font(.system(size: 7.5, weight: .semibold, design: .rounded))
+                .font(.system(size: 7.5, weight: .semibold))
                 .foregroundColor(.primary.opacity(0.45))
             let resolvedIdeal = context.resolve(idealLabel)
             context.draw(resolvedIdeal, at: CGPoint(x: tickX, y: centerY - tickOuterR - 7), anchor: .center)

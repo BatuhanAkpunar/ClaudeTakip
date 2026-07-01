@@ -111,14 +111,16 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 }
             }
             let checkUpdateAction: () -> Void = { [weak self] in self?.checkForUpdates() }
-            let view = MenuBarView(
-                viewModel: vm,
-                onRefresh: refreshAction,
-                onSignOut: signOutAction,
-                onQuit: quitAction,
-                onStartSession: startSessionAction,
-                onCheckUpdate: checkUpdateAction
-            )
+            let view = ScaledPopover(scale: 0.8) {
+                MenuBarView(
+                    viewModel: vm,
+                    onRefresh: refreshAction,
+                    onSignOut: signOutAction,
+                    onQuit: quitAction,
+                    onStartSession: startSessionAction,
+                    onCheckUpdate: checkUpdateAction
+                )
+            }
             let hostingController = NSHostingController(rootView: view)
             hostingController.sizingOptions = [.preferredContentSize]
             popover?.contentViewController = hostingController

@@ -1,0 +1,72 @@
+# SwiftLint configuration for ClaudeTakip
+# Balanced ruleset: surfaces real maintainability/style issues without
+# drowning the report in trivia. Run: `swiftlint lint`
+
+included:
+  - ClaudeTakip
+  - ClaudeTakipTests
+
+excluded:
+  - build
+  - ClaudeTakip.xcodeproj
+
+opt_in_rules:
+  - empty_count
+  - closure_spacing
+  - contains_over_first_not_nil
+  - first_where
+  - sorted_first_last
+  - unused_import
+  - redundant_nil_coalescing
+  - toggle_bool
+  - force_unwrapping
+
+disabled_rules:
+  - todo # tracked separately, not a code-quality signal
+
+line_length:
+  warning: 140
+  error: 220
+  ignores_comments: true
+  ignores_urls: true
+
+type_body_length:
+  warning: 400
+  error: 700
+
+file_length:
+  warning: 600
+  error: 1200
+  ignore_comment_only_lines: true
+
+function_body_length:
+  warning: 90
+  error: 160
+
+cyclomatic_complexity:
+  warning: 15
+  error: 25
+
+identifier_name:
+  min_length: 2
+  max_length:
+    warning: 50
+    error: 60
+  excluded:
+    - id
+    - x
+    - y
+    - e
+    - d
+    - v
+    - rv
+    - to
+    - up
+
+type_name:
+  max_length:
+    warning: 45
+    error: 55
+
+nesting:
+  type_level: 3

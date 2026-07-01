@@ -338,21 +338,8 @@ struct DetailedChartView: View {
             let p2 = points[i + 1]
             let p3 = i + 2 < points.count ? points[i + 2] : points[i + 1]
 
-            // Clamp control points to the segment's bounding box: x prevents
-            // overshoot across sparse-data gaps, y keeps the curve between the
-            // two samples — without the y clamp, a steep rise into a plateau
-            // bulges above the plateau, drawing usage past the 100% line.
-            let yLo = min(p1.y, p2.y)
-            let yHi = max(p1.y, p2.y)
-            let cp1 = CGPoint(
-                x: max(p1.x, min(p2.x, p1.x + (p2.x - p0.x) * tension)),
-                y: max(yLo, min(yHi, p1.y + (p2.y - p0.y) * tension))
-            )
-            let cp2 = CGPoint(
-                x: max(p1.x, min(p2.x, p2.x - (p3.x - p1.x) * tension)),
-                y: max(yLo, min(yHi, p2.y - (p3.y - p1.y) * tension))
-            )
-
+            // Control points clamped to the segment's bounding box (see ChartMath).
+            let (cp1, cp2) = ChartMath.controlPoints(p0: p0, p1: p1, p2: p2, p3: p3, tension: tension)
             path.addCurve(to: p2, control1: cp1, control2: cp2)
         }
     }
@@ -360,21 +347,13 @@ struct DetailedChartView: View {
     // MARK: - Chart Points
 
     private func chartPoints(width: CGFloat, usableHeight: CGFloat, topPadding: CGFloat) -> [CGPoint] {
-        guard let resetDate, !snapshots.isEmpty else { return [] }
-        let windowStart = resetDate.addingTimeInterval(-windowDuration)
-
-        var points: [CGPoint] = []
-        for snapshot in snapshots {
-            let elapsed = snapshot.timestamp.timeIntervalSince(windowStart)
-            guard elapsed >= 0 else { continue }
-            let xFraction = min(1, elapsed / windowDuration)
-            let yFraction = max(0, min(1, snapshot.usage))
-            points.append(CGPoint(x: width * xFraction, y: topPadding + usableHeight * (1 - yFraction)))
-            // Stop at the first snapshot that hit the cap so the line freezes
-            // at that moment. Any post-cap snapshots (stale cache from a version
-            // where the cap guard failed) are excluded from rendering.
-            if snapshot.usage >= 1.0 { break }
-        }
-        return points
+        ChartMath.points(
+            snapshots: snapshots,
+            resetDate: resetDate,
+            windowDuration: windowDuration,
+            width: width,
+            usableHeight: usableHeight,
+            topPadding: topPadding
+        )
     }
 }

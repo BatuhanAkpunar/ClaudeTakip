@@ -31,7 +31,7 @@ struct MenuBarView: View {
         VStack(spacing: 0) {
             ZStack(alignment: .top) {
                 ScrollView(.vertical, showsIndicators: false) {
-                    VStack(spacing: 10) {
+                    VStack(spacing: 7) {
                         if viewModel.notesManager.settings.aiRecommendation {
                             aiRecommendation
                         }
@@ -57,7 +57,8 @@ struct MenuBarView: View {
                             .padding(12)
                             .glassCard()
                     }
-                    .padding(12)
+                    .padding(.horizontal, 12)
+                    .padding(.vertical, 8)
                 }
                 .scrollIndicators(.hidden)
                 .clipped()
@@ -89,7 +90,7 @@ struct MenuBarView: View {
 
             headerBar
                 .padding(.horizontal, 14)
-                .padding(.vertical, 8)
+                .padding(.vertical, 6)
         }
         .frame(width: DT.Size.popoverWidth)
         .popoverBG()
@@ -140,7 +141,7 @@ struct MenuBarView: View {
                     .frame(width: 20, height: 20)
 
                 Text("ClaudeTakip")
-                    .font(.system(size: 13, weight: .bold, design: .rounded))
+                    .font(.system(size: 13, weight: .bold))
                     .foregroundStyle(.primary.opacity(0.70))
 
                 Text("·")
@@ -292,11 +293,11 @@ struct MenuBarView: View {
 
                 VStack(spacing: -2) {
                     Text("\(Int(usage * 100))")
-                        .font(.system(size: 21, weight: .heavy, design: .rounded))
+                        .font(.system(size: 21, weight: .heavy))
                         .tracking(-0.5)
                         .foregroundStyle(color)
                     Text("%")
-                        .font(.system(size: 11, weight: .bold, design: .rounded))
+                        .font(.system(size: 11, weight: .bold))
                         .foregroundStyle(color.opacity(0.7))
                 }
             }
@@ -311,7 +312,7 @@ struct MenuBarView: View {
                         Image(systemName: "hourglass.bottomhalf.filled")
                             .font(.system(size: 8))
                         Text(subtitle)
-                            .font(.system(size: 11, weight: .semibold, design: .rounded))
+                            .font(.system(size: 11, weight: .semibold))
                     }
                     Text("resets in", bundle: .app)
                         .font(.system(size: 11, weight: .medium))
@@ -320,8 +321,8 @@ struct MenuBarView: View {
             }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .padding(.vertical, 10)
-        .frame(height: 148)
+        .padding(.vertical, 6)
+        .frame(height: 122)
     }
 
     // MARK: - Sonnet Bar
@@ -348,7 +349,7 @@ struct MenuBarView: View {
             .frame(width: 120, height: 11)
 
             Text("\(Int(rv(viewModel.sonnetBarProgress) * 100))%")
-                .font(.system(size: 12, weight: .bold, design: .rounded))
+                .font(.system(size: 12, weight: .bold))
                 .foregroundStyle(DT.Colors.sonnetPurple)
                 .frame(width: 30, alignment: .leading)
 
@@ -362,13 +363,13 @@ struct MenuBarView: View {
                         .font(.system(size: 13, weight: .medium))
                         .foregroundStyle(.secondary.opacity(0.6))
                     Text(lines.1.isEmpty ? lines.0 : "\(lines.0) \(lines.1)")
-                        .font(.system(size: 11, weight: .semibold, design: .rounded))
+                        .font(.system(size: 11, weight: .semibold))
                         .foregroundStyle(.primary.opacity(0.70))
                         .lineLimit(1)
                 }
             }
         }
-        .padding(.vertical, 6)
+        .padding(.vertical, 4)
     }
 
     // MARK: - Extra Usage Bar
@@ -447,7 +448,7 @@ struct MenuBarView: View {
                 .frame(width: 120, height: 11)
 
                 Text("\(Int(rv(viewModel.extraUsageProgress) * 100))%")
-                    .font(.system(size: 12, weight: .bold, design: .rounded))
+                    .font(.system(size: 12, weight: .bold))
                     .foregroundStyle(DT.Colors.claudeAccent)
                     .frame(width: 30, alignment: .leading)
             }
@@ -462,19 +463,19 @@ struct MenuBarView: View {
                         .font(.system(size: 13, weight: .medium))
                         .foregroundStyle(.secondary.opacity(0.6))
                     Text(lines.1.isEmpty ? lines.0 : "\(lines.0) \(lines.1)")
-                        .font(.system(size: 11, weight: .semibold, design: .rounded))
+                        .font(.system(size: 11, weight: .semibold))
                         .foregroundStyle(.primary.opacity(0.70))
                         .lineLimit(1)
                 }
             }
         }
-        .padding(.vertical, 6)
+        .padding(.vertical, 4)
     }
 
     // MARK: - Burn Rate Section
 
     private var burnRateSection: some View {
-        VStack(spacing: 10) {
+        VStack(spacing: 8) {
             sectionTitle(String(localized: "USAGE RATE", bundle: .app)) {
                 Text("Ideal = 1.0x", bundle: .app)
                     .font(.system(size: 9.5, weight: .medium, design: .monospaced))
@@ -601,7 +602,7 @@ struct MenuBarView: View {
     // MARK: - Chart Section
 
     private var chartSection: some View {
-        VStack(spacing: 10) {
+        VStack(spacing: 8) {
             HStack {
                 HStack(spacing: 5) {
                     Text("USAGE HISTORY", bundle: .app)
@@ -842,7 +843,7 @@ struct MenuBarView: View {
 
                 VStack(spacing: 3) {
                     Text("ClaudeTakip")
-                        .font(.system(size: 14, weight: .bold, design: .rounded))
+                        .font(.system(size: 14, weight: .bold))
                         .foregroundStyle(.primary.opacity(0.85))
                     Text("v\(appVersion)")
                         .font(.system(size: 11, weight: .medium, design: .monospaced))
@@ -948,7 +949,7 @@ struct MenuBarView: View {
                         ?? viewModel.appState.accountName?.truncatedBeforeApostropheS
                     if let name = displayName {
                         Text(name)
-                            .font(.system(size: 14, weight: .bold, design: .rounded))
+                            .font(.system(size: 14, weight: .bold))
                             .foregroundStyle(.primary.opacity(0.85))
                             .lineLimit(1)
                     }
