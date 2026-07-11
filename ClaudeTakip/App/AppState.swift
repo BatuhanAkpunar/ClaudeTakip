@@ -72,10 +72,14 @@ final class AppState {
     var weeklyUsage: Double = 0
     var weeklyResetDate: Date?
 
-    // Sonnet-specific
+    // Model-scoped weekly limit (internally named "sonnet" to minimize blast
+    // radius; now sourced from the live weekly_scoped limit).
     var sonnetRemaining: Double = 1.0
     var sonnetUsage: Double = 0
     var sonnetResetDate: Date?
+    /// API-provided display name for the model-scoped weekly limit (e.g. "Fable").
+    /// Falls back to "Sonnet" in the UI when nil (legacy accounts).
+    var modelLimitName: String?
 
     // Extra usage (overage billing)
     var extraUsage: ExtraUsageInfo?
