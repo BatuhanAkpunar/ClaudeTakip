@@ -8,6 +8,12 @@ struct DetailedChartView: View {
     let xLabels: [String]
     let predictedDepletionDate: Date?
     var showCapMarker: Bool = false
+    /// Draw-on progress: data layers (area, line, excess, end dot) are
+    /// revealed up to x ≤ width × drawProgress; projection/cap overlays fade
+    /// in after the sweep. 1 = fully drawn (default, snapshot renders).
+    var drawProgress: Double = 1
+    /// Timing for the draw-on sweep; nil applies drawProgress instantly.
+    var drawAnimation: Animation? = nil
 
     @Environment(\.colorScheme) private var colorScheme
 
@@ -20,36 +26,61 @@ struct DetailedChartView: View {
                     Spacer().frame(height: 18)
                     ForEach(["100%", "75%", "50%", "25%", "0%"], id: \.self) { label in
                         Text(label)
-                            .font(.system(size: 9, weight: .medium, design: .monospaced))
-                            .foregroundStyle(.primary.opacity(0.7))
+                            .font(.system(size: 11, weight: .medium, design: .monospaced))
+                            .foregroundStyle(.primary.opacity(0.62))
                         if label != "0%" {
                             Spacer()
                         }
                     }
                 }
-                .frame(width: 32, height: 110)
+                .frame(width: 36, height: 110)
 
-                // Canvas chart
+                // Layered chart: static backdrop, left→right-revealed data
+                // layer, late-fading overlays. The reveal is a plain mask
+                // whose scale animates — genuinely animatable, unlike Canvas
+                // closure captures.
                 ZStack {
                     Canvas { context, size in
-                        drawChart(in: &context, size: size)
+                        drawBackdrop(in: &context, size: size)
                     }
-                    .clipShape(RoundedRectangle(cornerRadius: 8))
+                    Canvas { context, size in
+                        drawData(in: &context, size: size)
+                    }
+                    .mask(alignment: .leading) {
+                        Rectangle()
+                            .scaleEffect(
+                                x: max(0.0001, drawProgress), y: 1,
+                                anchor: .leading
+                            )
+                    }
+                    .animation(drawAnimation, value: drawProgress)
+                    Canvas { context, size in
+                        drawOverlays(in: &context, size: size)
+                    }
+                    .opacity(drawProgress)
+                    .animation(
+                        drawAnimation == nil
+                            ? nil
+                            : .easeOut(duration: 0.3).delay(0.55),
+                        value: drawProgress
+                    )
                 }
+                .clipShape(RoundedRectangle(cornerRadius: 8))
                 .frame(height: 110)
             }
 
             // X-axis labels
             HStack(spacing: 0) {
-                Color.clear.frame(width: 36, height: 1)
+                Color.clear.frame(width: 40, height: 1)
                 HStack {
                     ForEach(Array(xLabels.enumerated()), id: \.offset) { index, label in
                         if index > 0 {
                             Spacer()
                         }
                         Text(label)
-                            .font(.system(size: 9, weight: .medium, design: .monospaced))
-                            .foregroundStyle(.primary.opacity(0.7))
+                            .font(.system(size: 11, weight: .medium, design: .monospaced))
+                            .foregroundStyle(.primary.opacity(0.62))
+                            .lineLimit(1)
                     }
                 }
             }
@@ -57,21 +88,21 @@ struct DetailedChartView: View {
         }
     }
 
-    // MARK: - Main Draw
+    // MARK: - Layered Draw
 
-    private func drawChart(in context: inout GraphicsContext, size: CGSize) {
+    private let chartTopPad: CGFloat = 18
+
+    /// Static reference layer — grid lines + ideal diagonal. Always visible
+    /// (an empty chart still shows its frame of reference).
+    private func drawBackdrop(in context: inout GraphicsContext, size: CGSize) {
         let w = size.width
-        let h = size.height
-        let topPad: CGFloat = 18
-        let usableH = h - topPad
-        let points = chartPoints(width: w, usableHeight: usableH, topPadding: topPad)
-        let bottom = topPad + usableH
-
+        let usableH = size.height - chartTopPad
+        let bottom = chartTopPad + usableH
         let isDark = colorScheme == .dark
 
         // --- Grid lines (very subtle) ---
         for fraction in [0.25, 0.50, 0.75, 1.0] {
-            let y = topPad + usableH * (1 - fraction)
+            let y = chartTopPad + usableH * (1 - fraction)
             var gridLine = Path()
             gridLine.move(to: CGPoint(x: 0, y: y))
             gridLine.addLine(to: CGPoint(x: w, y: y))
@@ -85,12 +116,22 @@ struct DetailedChartView: View {
         // --- Ideal diagonal (more visible) ---
         var idealPath = Path()
         idealPath.move(to: CGPoint(x: 0, y: bottom))
-        idealPath.addLine(to: CGPoint(x: w, y: topPad))
+        idealPath.addLine(to: CGPoint(x: w, y: chartTopPad))
         context.stroke(
             idealPath,
             with: .color(.primary.opacity(isDark ? 0.30 : 0.18)),
             style: StrokeStyle(lineWidth: 1, dash: [4, 3])
         )
+    }
+
+    /// Data layer — area fill, smooth line, excess shading, end dot. This is
+    /// the layer revealed left → right by the draw-on mask.
+    private func drawData(in context: inout GraphicsContext, size: CGSize) {
+        let w = size.width
+        let usableH = size.height - chartTopPad
+        let points = chartPoints(width: w, usableHeight: usableH, topPadding: chartTopPad)
+        let bottom = chartTopPad + usableH
+        let isDark = colorScheme == .dark
 
         guard points.count >= 2 else { return }
 
@@ -113,61 +154,55 @@ struct DetailedChartView: View {
             areaPath,
             with: .linearGradient(
                 Gradient(colors: [
-                    color.opacity(0.90),
-                    color.opacity(0.60),
-                    color.opacity(0.25),
-                    color.opacity(0.03),
+                    color.opacity(0.28),
+                    color.opacity(0.16),
+                    color.opacity(0.06),
+                    color.opacity(0.02),
                 ]),
-                startPoint: CGPoint(x: 0, y: topPad),
+                startPoint: CGPoint(x: 0, y: chartTopPad),
                 endPoint: CGPoint(x: 0, y: bottom)
             )
-        )
-
-        // --- Line glow (subtle) ---
-        context.stroke(
-            linePath,
-            with: .color(color.opacity(0.18)),
-            style: StrokeStyle(lineWidth: 5, lineCap: .round, lineJoin: .round)
         )
 
         // --- Main data line (crisp) ---
         context.stroke(
             linePath,
             with: .color(color),
-            style: StrokeStyle(lineWidth: 2.5, lineCap: .round, lineJoin: .round)
+            style: StrokeStyle(lineWidth: 3, lineCap: .round, lineJoin: .round)
         )
 
         // --- Excess areas (above ideal) — drawn on top of line ---
-        drawExcessAreas(in: &context, points: points, w: w, usableH: usableH, topPad: topPad, bottom: bottom, isDark: isDark)
+        drawExcessAreas(in: &context, points: points, w: w, usableH: usableH, topPad: chartTopPad, bottom: bottom, isDark: isDark)
 
-        // --- Glowing end dot ---
+        // --- End dot (single soft halo) ---
         if let last = points.last {
-            let glowLayers: [(radius: CGFloat, opacity: Double)] = [
-                (8, 0.06),
-                (5, 0.12),
-                (3.5, 0.25),
-            ]
-            for layer in glowLayers {
-                let rect = CGRect(
-                    x: last.x - layer.radius, y: last.y - layer.radius,
-                    width: layer.radius * 2, height: layer.radius * 2
-                )
-                context.fill(Circle().path(in: rect), with: .color(color.opacity(layer.opacity)))
-            }
-            // Solid ring
-            let dotRect = CGRect(x: last.x - 4, y: last.y - 4, width: 8, height: 8)
+            let glowRect = CGRect(x: last.x - 5, y: last.y - 5, width: 10, height: 10)
+            context.fill(Circle().path(in: glowRect), with: .color(color.opacity(0.12)))
+            // Solid dot
+            let dotRect = CGRect(x: last.x - 3.5, y: last.y - 3.5, width: 7, height: 7)
             context.fill(Circle().path(in: dotRect), with: .color(color))
             // White center
             let innerRect = CGRect(x: last.x - 1.5, y: last.y - 1.5, width: 3, height: 3)
             context.fill(Circle().path(in: innerRect), with: .color(.white.opacity(0.9)))
         }
+    }
+
+    /// Overlay layer — projection line + cap marker. Fades in after the
+    /// draw-on sweep completes.
+    private func drawOverlays(in context: inout GraphicsContext, size: CGSize) {
+        let w = size.width
+        let usableH = size.height - chartTopPad
+        let points = chartPoints(width: w, usableHeight: usableH, topPadding: chartTopPad)
+        let bottom = chartTopPad + usableH
+
+        guard points.count >= 2 else { return }
 
         // --- Projection line ---
-        drawProjection(in: &context, points: points, w: w, topPad: topPad, bottom: bottom)
+        drawProjection(in: &context, points: points, w: w, topPad: chartTopPad, bottom: bottom)
 
         // --- Cap-reached marker ---
         if showCapMarker, let last = points.last {
-            drawCapMarker(in: &context, lastPoint: last, w: w, topPad: topPad, bottom: bottom)
+            drawCapMarker(in: &context, lastPoint: last, w: w, topPad: chartTopPad, bottom: bottom)
         }
     }
 
@@ -178,7 +213,7 @@ struct DetailedChartView: View {
         points: [CGPoint], w: CGFloat, usableH: CGFloat,
         topPad: CGFloat, bottom: CGFloat, isDark: Bool
     ) {
-        let excessColor = Color(red: 1.0, green: 0.25, blue: 0.20).opacity(isDark ? 0.35 : 0.25)
+        let excessColor = Color(red: 1.0, green: 0.25, blue: 0.20).opacity(isDark ? 0.28 : 0.18)
         for i in 0..<(points.count - 1) {
             let p1 = points[i]
             let p2 = points[i + 1]
@@ -258,7 +293,7 @@ struct DetailedChartView: View {
         guard clampedDepX >= 0 else { return }
 
         let markerGlow: [(radius: CGFloat, opacity: Double)] = [
-            (12, 0.08), (8, 0.16), (5, 0.35),
+            (8, 0.12), (5, 0.30),
         ]
         for layer in markerGlow {
             let rect = CGRect(
