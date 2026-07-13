@@ -10,7 +10,7 @@ struct LoadingView: View {
     var body: some View {
         VStack(spacing: 10) {
             // AI recommendation skeleton
-            RoundedRectangle(cornerRadius: DT.Radius.card)
+            RoundedRectangle(cornerRadius: DT.Radius.card, style: .continuous)
                 .fill(skeletonColor)
                 .frame(height: 52)
 

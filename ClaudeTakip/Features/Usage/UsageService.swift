@@ -207,7 +207,10 @@ final class UsageService {
             }
         }
 
-        // Sonnet
+        // Sonnet (model-scoped weekly limit)
+        // Keep the last-known non-nil model name so the label persists if a
+        // later poll omits it (e.g. a transient shape change).
+        appState.modelLimitName = usage.modelLimitName ?? appState.modelLimitName
         if let sonnetUtil = usage.sonnetUtilization {
             appState.sonnetUsage = sonnetUtil
             appState.sonnetRemaining = max(0, 1.0 - sonnetUtil)
@@ -297,6 +300,10 @@ final class UsageService {
         appState.usageHistory = c.sessionHistory
         appState.weeklyUsageHistory = c.weeklyHistory
         appState.sonnetUsageHistory = c.sonnetHistory
+
+        // Restore the model-scoped limit's display name so the label reads
+        // correctly before the first poll returns.
+        appState.modelLimitName = c.current.modelLimitName
 
         // Restore the weekly reset date so the first poll after relaunch can
         // tell whether the 7-day window rolled over while the app was closed.
