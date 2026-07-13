@@ -57,8 +57,8 @@ struct TimerGaugeColumn: View {
 
     @Environment(\.colorScheme) private var colorScheme
 
-    private let ringSize: CGFloat = 150
-    private let ringStroke: CGFloat = 18
+    private let ringSize: CGFloat = 120
+    private let ringStroke: CGFloat = 14
     /// Stroke centerline radius — the thumb modifier rides this.
     private var ringRadius: CGFloat { (ringSize - ringStroke) / 2 }
 
@@ -66,8 +66,8 @@ struct TimerGaugeColumn: View {
         VStack(spacing: 4) {
             // Title centered — same ladder on every page.
             Text(title)
-                .font(.system(size: 12, weight: .medium))
-                .tracking(0.6)
+                .font(.system(size: 10, weight: .medium))
+                .tracking(0.5)
                 .foregroundStyle(.primary.opacity(0.70))
                 .lineLimit(1)
                 .minimumScaleFactor(0.85)
@@ -114,13 +114,13 @@ struct TimerGaugeColumn: View {
                 // capsule keeps ≥6 pt clearance from the fat stroke.
                 VStack(spacing: 4) {
                     Text(centerText)
-                        .font(.system(size: 24, weight: .bold, design: .rounded))
+                        .font(.system(size: 19, weight: .bold, design: .rounded))
                         .monospacedDigit()
                         .foregroundStyle(centerColor ?? Color.primary.opacity(0.90))
                         .lineLimit(1)
                         .minimumScaleFactor(0.7)
                     statusBadge
-                        .frame(maxWidth: 88)
+                        .frame(maxWidth: 72)
                 }
                 .frame(width: ringSize - 2 * ringStroke - 12)
 
@@ -140,8 +140,8 @@ struct TimerGaugeColumn: View {
             // band (~15 pt inside the square frame) so the token sits ≤10 pt
             // under the visible arc instead of floating far below.
             .padding(.horizontal, 6)
-            .padding(.top, 8)
-            .padding(.bottom, -13)
+            .padding(.top, 7)
+            .padding(.bottom, -11)
 
             token
         }
@@ -193,12 +193,12 @@ struct TimerGaugeColumn: View {
     /// ("Ideal", "Limit risk", "Burning too fast", ...).
     private var statusBadge: some View {
         Text(badgeText)
-            .font(.system(size: 11.5, weight: .bold))
+            .font(.system(size: 9.5, weight: .bold))
             .foregroundStyle(badgeColor.opacity(colorScheme == .dark ? 0.95 : 1.0))
             .lineLimit(1)
-            .minimumScaleFactor(0.7)
-            .padding(.horizontal, 9)
-            .padding(.vertical, 4)
+            .minimumScaleFactor(0.6)
+            .padding(.horizontal, 7)
+            .padding(.vertical, 3)
             .background(Capsule().fill(badgeColor.opacity(0.20)))
             .overlay(Capsule().strokeBorder(badgeColor.opacity(0.32), lineWidth: 0.5))
     }
@@ -217,7 +217,7 @@ struct TimerGaugeColumn: View {
                 .strokeBorder(Color.white.opacity(0.9), lineWidth: 0.5)
                 .padding(2)
             Text(thumbText)
-                .font(.system(size: 13, weight: .semibold))
+                .font(.system(size: 10.5, weight: .semibold))
                 .monospacedDigit()
                 .foregroundStyle(.white)
                 .lineLimit(1)
@@ -243,7 +243,7 @@ struct TimerGaugeColumn: View {
                         Image(systemName: tokenIcon)
                             .font(.system(size: 10, weight: .medium))
                         Text(tokenLabel)
-                            .font(.system(size: 12, weight: .medium))
+                            .font(.system(size: 10, weight: .medium))
                     }
                     .foregroundStyle(.primary.opacity(0.70))
                     .lineLimit(1)
@@ -255,7 +255,7 @@ struct TimerGaugeColumn: View {
                                 .font(.system(size: 10, weight: .bold))
                         }
                         Text(tokenValue)
-                            .font(.system(size: 14, weight: .bold))
+                            .font(.system(size: 11.5, weight: .bold))
                             .monospacedDigit()
                             .lineLimit(1)
                     }
