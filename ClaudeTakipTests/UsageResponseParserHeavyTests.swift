@@ -95,4 +95,55 @@ import Foundation
         #expect(usage.sonnetUtilization != nil)
         #expect(abs((usage.sonnetUtilization ?? 0) - 0.80) < 0.0001)
     }
+
+    // MARK: - New API shape: weekly_scoped limit in the limits array
+
+    @Test func weeklyScopedLimitSuppliesModelNameAndUtilization() throws {
+        // Real API sample: legacy seven_day_sonnet is null; the live model-scoped
+        // weekly limit lives in the limits array as kind == "weekly_scoped".
+        let json = #"""
+        {
+          "five_hour": {"utilization": 3.0, "resets_at": "2026-07-09T17:49:59.718434+00:00"},
+          "seven_day": {"utilization": 62.0, "resets_at": "2026-07-11T06:59:59.718457+00:00"},
+          "seven_day_opus": null,
+          "seven_day_sonnet": null,
+          "extra_usage": {"is_enabled": false},
+          "limits": [
+            {"kind":"session","group":"session","percent":3,"severity":"normal","resets_at":"2026-07-09T17:49:59.718434+00:00","scope":null,"is_active":false},
+            {"kind":"weekly_all","group":"weekly","percent":62,"severity":"normal","resets_at":"2026-07-11T06:59:59.718457+00:00","scope":null,"is_active":false},
+            {"kind":"weekly_scoped","group":"weekly","percent":100,"severity":"critical","resets_at":"2026-07-11T06:59:59.718734+00:00","scope":{"model":{"id":null,"display_name":"Fable"},"surface":null},"is_active":true}
+          ]
+        }
+        """#
+        let usage = try parse(json)
+        #expect(usage.modelLimitName == "Fable")
+        #expect(usage.sonnetUtilization != nil)
+        #expect(abs((usage.sonnetUtilization ?? 0) - 1.0) < 0.0001)
+        #expect(usage.sonnetResetsAt != nil)
+    }
+
+    @Test func weeklyScopedPrefersActiveEntry() throws {
+        // Two weekly_scoped entries; the active one wins.
+        let json = #"""
+        {
+          "five_hour": {"utilization": 3},
+          "seven_day": {"utilization": 62},
+          "limits": [
+            {"kind":"weekly_scoped","percent":40,"scope":{"model":{"display_name":"Sonnet"}},"is_active":false},
+            {"kind":"weekly_scoped","percent":100,"scope":{"model":{"display_name":"Fable"}},"is_active":true}
+          ]
+        }
+        """#
+        let usage = try parse(json)
+        #expect(usage.modelLimitName == "Fable")
+        #expect(abs((usage.sonnetUtilization ?? 0) - 1.0) < 0.0001)
+    }
+
+    @Test func legacyFallbackWhenNoLimitsArray() throws {
+        // No limits array, but legacy seven_day_sonnet present — fall back to it,
+        // and modelLimitName stays nil.
+        let usage = try parse(#"{"five_hour":{"utilization":10},"seven_day":{"utilization":10},"seven_day_sonnet":{"utilization":80}}"#)
+        #expect(usage.modelLimitName == nil)
+        #expect(abs((usage.sonnetUtilization ?? 0) - 0.80) < 0.0001)
+    }
 }

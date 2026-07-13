@@ -268,6 +268,12 @@ final class MenuBarViewModel {
 
     var sonnetBarProgress: Double { appState.sonnetUsage }
 
+    /// Display name for the model-scoped weekly limit, from the live API
+    /// (e.g. "Fable"). Falls back to "Sonnet" for legacy accounts.
+    var modelLimitName: String {
+        appState.modelLimitName ?? String(localized: "Sonnet", bundle: .app)
+    }
+
     var sonnetResetText: String {
         _ = clockTick
         guard let date = appState.sonnetResetDate, date > Date() else { return "" }

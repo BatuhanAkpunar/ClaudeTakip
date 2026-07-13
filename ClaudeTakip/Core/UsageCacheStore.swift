@@ -22,6 +22,10 @@ struct CachedUsage: Codable, Sendable {
     var sevenDay: UsageBucket?
     var sevenDaySonnet: UsageBucket?
     var extraUsage: ExtraUsageInfo?
+    /// Display name for the model-scoped weekly limit (e.g. "Fable"). Optional so
+    /// old on-disk cache files that predate this field still decode (the
+    /// synthesized Codable init treats a missing optional as nil).
+    var modelLimitName: String?
 }
 
 struct UsageCacheFile: Codable, Sendable {
