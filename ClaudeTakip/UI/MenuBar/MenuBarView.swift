@@ -744,7 +744,7 @@ struct MenuBarView: View {
         Group {
             if !time.isEmpty {
                 Text(time)
-                    .font(.system(size: 13, weight: .bold))
+                    .font(.system(size: 11.5, weight: .bold))
                     .monospacedDigit()
                     .foregroundStyle(.primary.opacity(0.90))
                     .lineLimit(1)
@@ -769,6 +769,7 @@ struct MenuBarView: View {
 
     private func usageBarRow(
         icon: String,
+        assetIcon: String? = nil,
         color: Color,
         partner: Color,
         name: Text,
@@ -781,9 +782,18 @@ struct MenuBarView: View {
         return HStack(spacing: 7) {
             ZStack {
                 Circle().fill(color.opacity(0.14))
-                Image(systemName: icon)
-                    .font(.system(size: 12, weight: .semibold))
-                    .foregroundStyle(color)
+                if let assetIcon {
+                    Image(assetIcon)
+                        .renderingMode(.template)
+                        .resizable()
+                        .scaledToFit()
+                        .frame(width: 15, height: 15)
+                        .foregroundStyle(color)
+                } else {
+                    Image(systemName: icon)
+                        .font(.system(size: 12, weight: .semibold))
+                        .foregroundStyle(color)
+                }
             }
             .frame(width: Self.barRowIconSize, height: Self.barRowIconSize)
 
@@ -845,6 +855,7 @@ struct MenuBarView: View {
         let lines = viewModel.sonnetResetLines
         return usageBarRow(
             icon: "sparkles",
+            assetIcon: "PinheadButterfly",
             color: DT.Colors.sonnetPurple,
             partner: DT.Colors.auroraViolet,
             name: Text(viewModel.modelLimitName.uppercased()),
@@ -914,24 +925,13 @@ struct MenuBarView: View {
                     color: DT.Colors.extraBlue,
                     partner: DT.Colors.auroraCyan,
                     name: Text("EXTRA", bundle: .app),
-                    sub: extraSubText,
+                    sub: nil,
                     progress: rv(viewModel.extraUsageProgress),
                     resetTime: resetTime,
                     slot: 3
                 )
             }
         }
-    }
-
-    /// "$4.20 / $25"-style balance line under the EXTRA name.
-    private var extraSubText: String? {
-        if let balanceText = viewModel.extraCurrentBalanceText {
-            return "\(viewModel.extraUsedText) / \(balanceText)"
-        }
-        if let limitText = viewModel.extraMonthlyLimitText {
-            return "\(viewModel.extraUsedText) \(limitText)"
-        }
-        return viewModel.extraUsedText
     }
 
     // MARK: - Usage Rate Page (third page of the USAGE LIMITS pager)
@@ -985,7 +985,7 @@ struct MenuBarView: View {
             centerColor: TimerGaugeColumn.rampColor(clamped),
             badgeText: badgeText,
             badgeColor: badgeColor,
-            thumbText: TimerGaugeColumn.deviationPercentText(for: clamped),
+            thumbText: "",   // deviation is shown in the token below the ring
             thumbColor: TimerGaugeColumn.rampColor(arcRate),
             tokenIcon: "gauge.with.needle",
             tokenLabel: String(localized: "Ideal = 1.0x", bundle: .app),
@@ -1708,7 +1708,7 @@ struct MenuBarView: View {
                 case .degraded, .major, .maintenance:
                     Image(systemName: "exclamationmark.icloud.fill")
                         .font(.system(size: 14, weight: .medium))
-                        .foregroundStyle(DT.Colors.statusRed)
+                        .foregroundStyle(DT.Colors.statusAlert)
                 }
             }
         }

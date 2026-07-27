@@ -211,8 +211,13 @@ final class MenuBarViewModel {
     var weeklyDeviationText: String { deviationText(for: weeklyRate) }
 
     private func deviationText(for rate: Double) -> String {
+        // Switch on the SAME boundary as the thumb chip, the arrow, and the
+        // color (rate <= 1.03 = on/under pace = neutral): at or under ideal
+        // pace there is no real deviation. Using rate (not the truncated
+        // Int percent) keeps all four in lockstep — no 1.03–1.04 window where
+        // the words say "No deviation" while the arrow/tint/chip flag a rise.
+        if rate <= 1.03 { return String(localized: "No deviation", bundle: .app) }
         let pct = Int((rate - 1.0) * 100)
-        if pct <= 3 { return String(localized: "No deviation", bundle: .app) }
         return String(localized: "+\(pct)% deviation", bundle: .app)
     }
 
