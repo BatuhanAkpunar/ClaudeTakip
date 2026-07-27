@@ -9,6 +9,7 @@ enum DT {
         static let statusGreen = Color(red: 0.14, green: 0.73, blue: 0.33)
         static let statusOrange = Color(red: 1.0, green: 0.56, blue: 0.0)
         static let statusRed = Color(red: 0.96, green: 0.20, blue: 0.16)
+        static let statusAlert = Color(red: 0.878, green: 0.267, blue: 0.263) // #E04443
         static let weeklyBlue = Color(red: 0.0, green: 0.48, blue: 1.0)
         static let sonnetPurple = Color(red: 0.44, green: 0.35, blue: 0.97)
         static let extraBlue = Color(nsColor: NSColor(

@@ -9,7 +9,7 @@ import AppKit
 @MainActor
 @Suite struct SnapshotHarnessTests {
 
-    private func makeViewModel(darkMode: Bool) -> MenuBarViewModel {
+    private func makeViewModel(darkMode: Bool, degraded: Bool = false) -> MenuBarViewModel {
         // Isolated defaults: the real app domain may carry an explicit
         // darkMode that would override the window appearance via
         // .preferredColorScheme, breaking the dark render.
@@ -34,7 +34,7 @@ import AppKit
         appState.weeklyResetDate = Date().addingTimeInterval(3 * 86400 + 4 * 3600)
         appState.sonnetResetDate = Date().addingTimeInterval(3 * 86400)
         appState.lastUpdateDate = Date().addingTimeInterval(-3 * 60)
-        appState.claudeSystemStatus = .operational
+        appState.claudeSystemStatus = degraded ? .degraded : .operational
         appState.connectionStatus = .connected
         appState.extraUsage = ExtraUsageInfo(
             isEnabled: true,
@@ -64,8 +64,8 @@ import AppKit
         )
     }
 
-    private func snapshot(appearance: NSAppearance.Name, to path: String, limitsPage: Int? = nil, collapseChart: Bool = false) throws {
-        let vm = makeViewModel(darkMode: appearance == .darkAqua)
+    private func snapshot(appearance: NSAppearance.Name, to path: String, limitsPage: Int? = nil, collapseChart: Bool = false, degraded: Bool = false) throws {
+        let vm = makeViewModel(darkMode: appearance == .darkAqua, degraded: degraded)
         let view = MenuBarView(
             viewModel: vm,
             onRefresh: {},
@@ -140,5 +140,32 @@ import AppKit
 
     @Test func renderCollapsedChartSnapshot() throws {
         try snapshot(appearance: .aqua, to: "/tmp/claudetakip-snap-collapsed.png", collapseChart: true)
+    }
+
+    /// PROVES Change 1(b): with claudeSystemStatus = .degraded the header
+    /// cloud becomes exclamationmark.icloud.fill tinted #E04443 (statusAlert).
+    @Test func renderDegradedStatusSnapshot() throws {
+        try snapshot(appearance: .aqua, to: "/tmp/claudetakip-snap-degraded.png", degraded: true)
+    }
+
+    /// PROVES Change 1(a): the menu-bar asterisk logo is #E04443 when
+    /// statusAlert == true and #D97757 when false. Writes both NSImages to
+    /// PNG for visual + pixel inspection.
+    @Test func renderMenuBarAlertLogo() throws {
+        let renderer = MenuBarIconRenderer()
+        let normal = renderer.render(remaining: 0.63, resetTimeText: "2:14", hasLoaded: true, statusAlert: false)
+        let alert = renderer.render(remaining: 0.63, resetTimeText: "2:14", hasLoaded: true, statusAlert: true)
+        try writePNG(normal, to: "/tmp/claudetakip-menubar-normal.png")
+        try writePNG(alert, to: "/tmp/claudetakip-menubar-alert.png")
+    }
+
+    private func writePNG(_ image: NSImage, to path: String) throws {
+        guard let tiff = image.tiffRepresentation,
+              let rep = NSBitmapImageRep(data: tiff),
+              let png = rep.representation(using: .png, properties: [:]) else {
+            Issue.record("no png data for \(path)")
+            return
+        }
+        try png.write(to: URL(fileURLWithPath: path))
     }
 }

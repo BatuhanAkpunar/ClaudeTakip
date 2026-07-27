@@ -135,7 +135,7 @@ struct TimerGaugeColumn: View {
                     .animation(fillAnimation, value: fraction)
             }
             .frame(width: ringSize, height: ringSize)
-            // Room for the thumb overhanging the stroke (dia = stroke + 10).
+            // Room for the thumb overhanging the stroke (dia = stroke + 18).
             // The negative bottom padding reclaims the arc's empty bottom-gap
             // band (~15 pt inside the square frame) so the token sits ≤10 pt
             // under the visible arc instead of floating far below.
@@ -205,28 +205,43 @@ struct TimerGaugeColumn: View {
 
     // MARK: - Thumb
 
-    /// The readout riding the arc end. Same `fraction` as the arc itself —
-    /// never a separate calculation. The text sits dead-center in the circle
-    /// (plain ZStack centering, no baseline offsets), stays upright, and
-    /// scales down for longer strings.
+    /// The marker riding the arc end. Same `fraction` as the arc itself —
+    /// never a separate calculation.
+    /// • Overview passes a readout string ("63%"): a text chip sized to the
+    ///   glyphs, always upright, dead-centered, `.fixedSize()` so every string
+    ///   renders at one size.
+    /// • Rate passes an EMPTY string: the deviation is already spelled out in
+    ///   the token below the ring, so a number here would be redundant — the
+    ///   thumb becomes a compact position dot with no text.
     private var thumb: some View {
-        ZStack {
-            Circle()
-                .fill(thumbColor)
-            Circle()
-                .strokeBorder(Color.white.opacity(0.9), lineWidth: 0.5)
-                .padding(2)
-            Text(thumbText)
-                .font(.system(size: 10.5, weight: .semibold))
-                .monospacedDigit()
-                .foregroundStyle(.white)
-                .lineLimit(1)
-                .minimumScaleFactor(0.5)
-                .padding(.horizontal, 2)
+        Group {
+            if thumbText.isEmpty {
+                ZStack {
+                    Circle().fill(thumbColor)
+                    Circle()
+                        .fill(Color.white.opacity(0.92))
+                        .padding(5)
+                }
+                .frame(width: ringStroke + 5, height: ringStroke + 5)
+            } else {
+                ZStack {
+                    Circle()
+                        .fill(thumbColor)
+                    Circle()
+                        .strokeBorder(Color.white.opacity(0.9), lineWidth: 0.5)
+                        .padding(2)
+                    Text(thumbText)
+                        .font(.system(size: 12, weight: .semibold))
+                        .monospacedDigit()
+                        .foregroundStyle(.white)
+                        .lineLimit(1)
+                        .fixedSize()
+                }
+                // Diameter tracks the ring stroke (stroke + 18) so a 3–4 glyph
+                // readout at 12 pt sits fully inside, proportional to the ring.
+                .frame(width: ringStroke + 18, height: ringStroke + 18)
+            }
         }
-        // Diameter tracks the ring stroke (stroke + 10) so the thumb reads
-        // attached to the fat arc rather than floating on it.
-        .frame(width: ringStroke + 10, height: ringStroke + 10)
         .shadow(color: .black.opacity(0.20), radius: 3)
     }
 
@@ -241,9 +256,9 @@ struct TimerGaugeColumn: View {
                 VStack(spacing: 3) {
                     HStack(spacing: 3.5) {
                         Image(systemName: tokenIcon)
-                            .font(.system(size: 10, weight: .medium))
+                            .font(.system(size: 11, weight: .medium))
                         Text(tokenLabel)
-                            .font(.system(size: 10, weight: .medium))
+                            .font(.system(size: 11, weight: .medium))
                     }
                     .foregroundStyle(.primary.opacity(0.70))
                     .lineLimit(1)
@@ -323,16 +338,6 @@ extension TimerGaugeColumn {
         return String(format: "%.1fx", truncated)
     }
 
-    /// Signed compact deviation percent for the thumb chip — "+13%", "0%",
-    /// "−30%". Truncates like the view model's deviation text so the thumb
-    /// and the capsule below can never disagree ("+13%" ↔ "+13% deviation").
-    static func deviationPercentText(for rate: Double) -> String {
-        let clamped = min(max(rate, 0), 2.0)
-        let pct = Int((clamped - 1.0) * 100)
-        if pct > 0 { return "+\(pct)%" }
-        if pct < 0 { return "\u{2212}\(-pct)%" }
-        return "0%"
-    }
 }
 
 // MARK: - Arc Thumb Position

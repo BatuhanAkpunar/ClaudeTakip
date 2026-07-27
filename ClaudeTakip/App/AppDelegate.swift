@@ -72,10 +72,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     private func updateIcon() {
         let resetText = MenuBarIconRenderer.formatResetTime(from: appState.sessionResetDate)
+        let statusAlert = appState.claudeSystemStatus != .operational
         let image = iconRenderer.render(
             remaining: appState.sessionRemaining,
             resetTimeText: resetText,
-            hasLoaded: appState.isLoggedIn && appState.hasLoadedUsage
+            hasLoaded: appState.isLoggedIn && appState.hasLoadedUsage,
+            statusAlert: statusAlert
         )
         statusItem?.button?.image = image
     }
