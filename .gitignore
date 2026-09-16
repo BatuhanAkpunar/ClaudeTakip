@@ -1,23 +1,22 @@
-# Xcode
-*.xcodeproj
-*.xcworkspace
+.build/
+dist/
+.swiftpm/
+node_modules/
+*.xcuserdatad/
 xcuserdata/
-DerivedData/
-build/
-*.pbxuser
-*.mode1v3
-*.mode2v3
-*.perspectivev3
-*.xcuserstate
-
-# macOS
 .DS_Store
-.superpowers/
+*.log
+
+# Derleme ve dağıtım çıktıları
 *.dmg
 
-# Secrets
-Local.xcconfig
+# Yerel araç ve çalışma klasörleri; uygulamanın parçası değil
+_to_delete/
+.agents/
+.claude/
+skills-lock.json
 
-# Dependencies
-.build/
-Packages/
+# Cloudflare worker yerel durumu (yerel D1 kopyası dahil)
+cloud/node_modules/
+cloud/.wrangler/
+cloud/.dev.vars

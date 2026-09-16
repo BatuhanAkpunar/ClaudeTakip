@@ -1,0 +1,13 @@
+{
+  "name": "claudetakip-sync",
+  "private": true,
+  "scripts": {
+    "dev": "wrangler dev",
+    "deploy": "wrangler deploy",
+    "schema": "wrangler d1 execute claudetakip --file=schema.sql --remote",
+    "schema:local": "wrangler d1 execute claudetakip --file=schema.sql --local"
+  },
+  "devDependencies": {
+    "wrangler": "^4.125.0"
+  }
+}
