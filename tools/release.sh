@@ -65,11 +65,19 @@ fi
 xcodegen generate >/dev/null
 
 # ── 2. Derleme ───────────────────────────────────────────────────────────────
-xcodebuild -project ClaudeLimit.xcodeproj -scheme ClaudeLimit -configuration Release \
-  -derivedDataPath .build/xcode-rel build 2>/dev/null | tail -1
+# NOT: bu makinede xcodebuild, derleme BAŞARILI olsa bile CoreDevice eklenti
+# yükleme hatası yüzünden sıfırdan farklı çıkış kodu dönebiliyor. `pipefail`
+# ile bu betiği erken sonlandırıyordu. Gerçek başarı ölçütü çıkış kodu değil,
+# derlenen .app'in var olması ve doğru sürümü taşıması; onu denetliyoruz.
 APP=".build/xcode-rel/Build/Products/Release/Claude Limit.app"
-BUILT=$(/usr/libexec/PlistBuddy -c "Print :CFBundleShortVersionString" "$APP/Contents/Info.plist")
-[ "$BUILT" = "$VERSION" ] || { echo "Derlenen sürüm $BUILT, beklenen $VERSION"; exit 1; }
+rm -rf "$APP"
+xcodebuild -project ClaudeLimit.xcodeproj -scheme ClaudeLimit -configuration Release \
+  -derivedDataPath .build/xcode-rel build > /tmp/claude-limit-build.log 2>&1 || true
+BUILT=$(/usr/libexec/PlistBuddy -c "Print :CFBundleShortVersionString" "$APP/Contents/Info.plist" 2>/dev/null || echo "")
+if [ "$BUILT" != "$VERSION" ]; then
+  echo "Derleme başarısız (derlenen sürüm '$BUILT', beklenen $VERSION). Günlük:"; tail -20 /tmp/claude-limit-build.log; exit 1
+fi
+echo "▸ derlendi: $VERSION"
 
 # ── 3. DMG (uygulamayı yerinde imzalar) ──────────────────────────────────────
 tools/make-dmg.sh

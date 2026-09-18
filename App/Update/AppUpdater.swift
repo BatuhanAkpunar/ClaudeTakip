@@ -55,6 +55,19 @@ final class AppUpdater: NSObject {
         pendingInstall = nil
         install()
     }
+
+    /// Ayarlardaki düğme buraya bağlı: kullanıcı "şimdi denetle" dediğinde
+    /// Sparkle'ın standart arayüzü (denetliyor → güncel / güncelleme var)
+    /// açılıyor. Aksesuar uygulaması olduğumuz için önce öne alınıyoruz,
+    /// yoksa Sparkle penceresi arkada kalıp görünmeyebiliyor.
+    func checkForUpdates() {
+        guard let controller else { return }
+        NSApp.activate(ignoringOtherApps: true)
+        controller.checkForUpdates(nil)
+    }
+
+    /// Güncelleyici bu derlemede etkin mi (yayın derlemesinde her zaman).
+    var isAvailable: Bool { controller != nil }
 }
 
 // Sparkle protokolü ana aktöre bağlı (`NS_SWIFT_UI_ACTOR`): yöntemler ana

@@ -27,6 +27,12 @@ final class UsageStore {
     private(set) var latestExtraUsage: Int?
 
     /// Menü çubuğu çizimi için hazır anlık görüntü.
+    /// Ayarlardaki "güncellemeleri denetle" düğmesi buraya bağlı; gerçek işi
+    /// AppDelegate'teki Sparkle güncelleyici yapıyor. Test/önizlemede nil.
+    var manualUpdateCheck: (() -> Void)?
+    /// Güncelleyici bu derlemede var mı (yayında evet, DEBUG'da beslemesiz hayır).
+    var updatesAvailable = false
+
     private(set) var menuBarSnapshot = MenuBarSnapshot(
         hasData: false, usedPercent: 0, countdownText: "", isStale: false
     )

@@ -43,6 +43,9 @@ struct SettingsPage: View {
                         isOn: $autoSession
                     )
 
+                    Divider().opacity(0.5)
+                    updatesRow
+
                     if let loginError {
                         Text(loginError)
                             .font(Typo.footnote)
@@ -92,6 +95,34 @@ struct SettingsPage: View {
             .controlSize(.small)
             .fixedSize()
         }
+    }
+
+    /// Uygulama sürümü ve elle güncelleme denetimi.
+    ///
+    /// Güncellemeler zaten günde bir kez sessizce iniyor; bu düğme "hemen bak"
+    /// için. Yayın derlemesinde her zaman var; DEBUG'da beslemesiz açılırsa
+    /// güncelleyici yok, o yüzden düğme yalnızca gerçekten çalışacaksa çiziliyor.
+    private var updatesRow: some View {
+        HStack {
+            Text(L.t("Sürüm \(Self.appVersion)", "Version \(Self.appVersion)"))
+                .font(Typo.body)
+                .foregroundStyle(Palette.secondaryText)
+            Spacer(minLength: 8)
+            if store.updatesAvailable {
+                Button(L.t("Güncellemeleri denetle", "Check for updates")) {
+                    store.manualUpdateCheck?()
+                }
+                .controlSize(.small)
+            } else {
+                Text(L.t("otomatik", "automatic"))
+                    .font(Typo.footnote)
+                    .foregroundStyle(Palette.tertiaryText)
+            }
+        }
+    }
+
+    static var appVersion: String {
+        Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "?"
     }
 
     private var header: some View {

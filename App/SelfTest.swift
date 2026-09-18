@@ -159,35 +159,56 @@ enum SelfTest {
     /// göre. Menü çubuğu ayarları kaldırıldı; her öge her zaman görünür.
     private static func checkMenuBarFallbacksAndWallet() {
         let full = MenuBarSnapshot(
-            hasData: true, usedPercent: 46, countdownText: "4:28",
-            weeklyCountdownText: "6g 4s", isStale: false
+            hasData: true, usedPercent: 46, countdownText: "4:28", isStale: false
         )
         let layout = MenuBarIconRenderer.layout(for: full)
-        check("Menü çubuğu: haftalık geri sayım kutuların SOLUNDA",
-              "weeklyX=\(layout.weeklyX) barX=\(layout.barX)",
-              layout.weeklyText == "6g 4s" && layout.weeklyX > 0 && layout.weeklyX < layout.barX)
-        check("Menü çubuğu: 5 saatlik yüzde ve geri sayım kutuların SAĞINDA",
-              "barX=\(layout.barX) percentX=\(layout.percentX) countdownX=\(layout.countdownX)",
-              layout.percentX > layout.barX && layout.countdownX > layout.percentX
-                  && layout.countdownText == "4:28")
-        check("Menü çubuğu: yüzde dile göre (%54)",
-              "'\(layout.percentText)'", layout.percentText == L.t("%54", "54%"))
+        // Yeni yerleşim: [demet] [pil] [saat] geri sayım. Haftalık kalktı.
+        check("Menü çubuğu: pil demetin sağında",
+              "pillX=\(layout.pillX) markX=\(layout.markX)",
+              layout.pillX > layout.markX)
+        check("Menü çubuğu: geri sayım pilin sağında",
+              "pillX=\(layout.pillX) countdownX=\(layout.countdownX)",
+              layout.countdownX > layout.pillX && layout.countdownText == "4:28")
+
+        // Pilin içindeki sayı KALAN yüzde, işaretsiz. %46 kullanıldı → 54 kaldı.
+        check("Menü çubuğu: kalan yüzde işaretsiz",
+              "remaining=\(full.remainingPercent)", full.remainingPercent == 54)
+
+        // Yakıt göstergesi: kalan azaldıkça yeşilden kırmızıya. Uçlar ve orta.
+        func hue(_ remaining: Double) -> (r: CGFloat, g: CGFloat, b: CGFloat) {
+            let c = MenuBarIconRenderer.gaugeColor(remaining: remaining).usingColorSpace(.sRGB)!
+            return (c.redComponent, c.greenComponent, c.blueComponent)
+        }
+        let hi = hue(1.0), lo = hue(0.0)
+        check("Menü çubuğu: dolu yeşil, boş kırmızı",
+              "dolu=(\(Int(hi.r*255)),\(Int(hi.g*255)),\(Int(hi.b*255))) boş=(\(Int(lo.r*255)),\(Int(lo.g*255)),\(Int(lo.b*255)))",
+              hi.g > hi.r && lo.r > lo.g)
+
+        // Metin okunurluğu: parlak dolguda mürekkep KOYU, kırmızı/gri zeminde
+        // beyaz. İki uçta da yeterli kontrast (parlaklık farkı büyük).
+        func lum(_ c: NSColor) -> CGFloat {
+            let s = c.usingColorSpace(.sRGB)!
+            return 0.2126*s.redComponent + 0.7152*s.greenComponent + 0.0722*s.blueComponent
+        }
+        let green = MenuBarIconRenderer.gaugeColor(remaining: 1.0)
+        let inkGreen = MenuBarIconRenderer.readableInk(on: green)
+        check("Menü çubuğu: parlak dolguda koyu okunur mürekkep",
+              "kontrast=\(String(format: "%.1f", (lum(green)+0.05)/(lum(inkGreen)+0.05)))",
+              lum(inkGreen) < lum(green) && (lum(green)+0.05)/(lum(inkGreen)+0.05) >= 3.0)
 
         let empty = MenuBarSnapshot(hasData: false, usedPercent: 0, countdownText: "", isStale: false)
         let emptyLayout = MenuBarIconRenderer.layout(for: empty)
-        check("Menü çubuğu: veri yokken yalnız demet + kutular",
+        check("Menü çubuğu: veri yokken yalnız demet + boş pil",
               "width=\(emptyLayout.width)",
-              emptyLayout.weeklyText.isEmpty && emptyLayout.percentText.isEmpty
-                  && emptyLayout.countdownText.isEmpty && emptyLayout.width < 45)
+              emptyLayout.countdownText.isEmpty && emptyLayout.width < 70)
 
-        // Tek görsel: demet + kutular + metin. Template DEĞİL (metin rengini
-        // menü çubuğu tonuna göre kendimiz seçiyoruz).
         let iconDark = MenuBarIconRenderer.colorImage(for: full, dark: true, ink: .white)
-        let iconLight = MenuBarIconRenderer.colorImage(for: full, dark: false, ink: .black)
         check("Menü çubuğu: tek non-template görsel",
               "template=\(iconDark.isTemplate)", !iconDark.isTemplate)
-        check("Menü çubuğu: ton görseli değiştiriyor",
-              "boyut \(iconDark.size)", iconDark.size == iconLight.size && iconDark.size.width > 40)
+        check("Menü çubuğu: pil sabit genişlik (yüzdeyle zıplamıyor)",
+              "w100=\(MenuBarIconRenderer.width(for: MenuBarIconRenderer.testSnap(used: 0))) w8=\(MenuBarIconRenderer.width(for: MenuBarIconRenderer.testSnap(used: 92)))",
+              MenuBarIconRenderer.width(for: MenuBarIconRenderer.testSnap(used: 0))
+                  == MenuBarIconRenderer.width(for: MenuBarIconRenderer.testSnap(used: 92)))
 
         // Cüzdan kartı: kompakt spec'in durumları doğru mu.
         func wallet(_ s: WalletState) -> WalletPresentation { WalletPresentation.make(s) }

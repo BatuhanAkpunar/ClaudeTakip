@@ -3,38 +3,45 @@ import LimitCore
 
 /// Menü çubuğu ikonu.
 ///
-/// Soldan sağa: `[Claude demeti] [iki dikey kutu] [kalan %] [kum saati] 3:54`
-/// Son parça (geri sayım) düğmenin başlığı olarak çiziliyor, gerisi bu görselde.
+/// Soldan sağa: `[Claude demeti] [pil] [kum saati] 0:45`
 ///
-/// Kutular DOLULUK değil KALAN gösteriyor: çubuk kısaldıkça hakkın azalıyor,
-/// yanındaki sayı da aynı yönde okunuyor. Sıra `[haftalık][5 saatlik][%]`:
-/// sayı 5 saatlik pencereye ait olduğu için onun kutusuna komşu duruyor,
-/// yakınlık hangi sayının hangi kutuya ait olduğunu söylüyor.
+/// Haftalık pencere menü çubuğundan çıkarıldı (kullanıcı isteği): tek bir
+/// pencereye odaklanınca ikon hem sakin hem net. Kalan bilgi 5 saatlik pencere:
+///
+///   - **Pil** (macOS 26 tarzı yatay kapsül): kalan kotayı hem DOLULUKLA hem
+///     içine yazılı SAYIYLA gösteriyor. Kalan azaldıkça renk yeşilden kırmızıya
+///     kayıyor (yakıt göstergesi mantığı); pil bir "ne kadar hakkım var" sorusu,
+///     kotanın kimlik rengi (mavi) değil sağlık rengi doğru cevap.
+///   - **Kum saati + geri sayım**: 5 saatlik pencerenin ne zaman sıfırlanacağı.
 ///
 /// Claude demeti servis sağlıklıyken marka renginde, kesintide kırmızı.
 enum MenuBarIconRenderer {
-    /// Ögeler arasındaki TEK boşluk değeri. Hepsi aynı olsun diye tek yerden.
+    /// Ögeler arasındaki TEK boşluk değeri.
     private static let gap: CGFloat = 5
     private static let height: CGFloat = 22
     private static let markWidth: CGFloat = 15
-    private static let barW: CGFloat = 5, barH: CGFloat = 16, barGap: CGFloat = 2.5
+
+    /// Pil ölçüleri. Yükseklik menü çubuğunda olabildiğince yüksek: 22 pt
+    /// tuvalde 17 pt kapsül, üstte altta 2,5 pt pay. Apple'ın pil simgesinden
+    /// belirgin biçimde daha dolgun, ama kenara değmeyecek kadar paylı.
+    /// Genişlik SABİT: "100" en geniş sayı (24,3 pt) iki yandan payla sığıyor;
+    /// sabit olması menü çubuğu ögesinin yüzde değiştikçe zıplamasını önlüyor.
+    private static let pillHeight: CGFloat = 17
+    private static let pillWidth: CGFloat = 38
+    /// Sayının kapsül uçlarının yuvarlağına girmemesi için yatay iç pay.
+    private static let pillTextInset: CGFloat = 5
     private static let clockSize: CGFloat = 11
 
-    /// Yerleşim, soldan sağa:
-    ///
-    ///     [Claude demeti] 6g 4s [7g kutusu][5s kutusu] %12 ⏱ 0:45
-    ///
-    /// Sol yarı haftalık, sağ yarı 5 saatlik: her metin kendi kutusuna komşu
-    /// duruyor, yakınlık aidiyeti söylüyor. İki katman (renk / mürekkep) aynı
-    /// koordinatları buradan alıyor; eskiden iki yerde ayrı ayrı toplanıyor ve
-    /// birbirinden kayabiliyordu.
+    /// Pilin içindeki sayı: menü çubuğu fontuyla aynı boy değil, biraz daha
+    /// küçük ama yarı kalın; 17 pt kapsülde büyük harf yüksekliği ~8,5 pt, yani
+    /// kapsülün yarısı. Eş genişlikli rakam: sayı değişince metin oynamıyor.
+    static var numberFont: NSFont {
+        NSFont.monospacedDigitSystemFont(ofSize: 12, weight: .semibold)
+    }
+
     struct Layout {
         var markX: CGFloat = 2
-        var weeklyX: CGFloat = 0
-        var weeklyText = ""
-        var barX: CGFloat = 0
-        var percentX: CGFloat = 0
-        var percentText = ""
+        var pillX: CGFloat = 0
         var clockX: CGFloat = 0
         var countdownX: CGFloat = 0
         var countdownText = ""
@@ -44,16 +51,8 @@ enum MenuBarIconRenderer {
     static func layout(for s: MenuBarSnapshot) -> Layout {
         var l = Layout()
         var x: CGFloat = l.markX + markWidth
-        if s.hasData, !s.weeklyCountdownText.isEmpty {
-            x += gap; l.weeklyX = x; l.weeklyText = s.weeklyCountdownText
-            x += textWidth(l.weeklyText)
-        }
-        x += gap; l.barX = x; x += barW * 2 + barGap
-        if s.hasData {
-            x += gap; l.percentX = x; l.percentText = percentText(s)
-            x += textWidth(l.percentText)
-        }
-        if s.hasData, !s.countdownText.isEmpty {
+        x += gap; l.pillX = x; x += pillWidth
+        if s.hasData, s.showCountdown, !s.countdownText.isEmpty {
             x += gap; l.clockX = x; x += clockSize + 3
             l.countdownX = x; l.countdownText = s.countdownText
             x += textWidth(l.countdownText)
@@ -64,15 +63,15 @@ enum MenuBarIconRenderer {
 
     static func width(for snapshot: MenuBarSnapshot) -> CGFloat { layout(for: snapshot).width }
 
-    /// Yüzde işareti dile göre: Türkçede "%12", İngilizcede "12%".
-    static func percentText(_ s: MenuBarSnapshot) -> String {
-        L.t("%\(s.remainingPercent)", "\(s.remainingPercent)%")
+    #if DEBUG
+    /// Yalnızca self-test: verilen kullanım için tam bir anlık görüntü.
+    static func testSnap(used: Double) -> MenuBarSnapshot {
+        MenuBarSnapshot(hasData: true, usedPercent: used, countdownText: "3:54", isStale: false)
     }
+    #endif
 
-    /// macOS'un menü çubuğunda kullandığı fontun ta kendisi: saat, pil ve
-    /// menü başlıkları bununla çiziliyor, bizimki de onlarla aynı ağırlıkta
-    /// ve boyda görünsün. Tek ekleme sabit genişlikli rakamlar: geri sayım
-    /// her saniye değiştiği için oranlı rakamlarda metin sağa sola oynuyordu.
+    /// Geri sayım metni için menü çubuğu fontu (eş genişlikli rakam), pilin
+    /// yanındaki saatle aynı optik ağırlıkta.
     static var textFont: NSFont {
         let base = NSFont.menuBarFont(ofSize: 0)
         let descriptor = base.fontDescriptor.addingAttributes([
@@ -88,42 +87,73 @@ enum MenuBarIconRenderer {
         (text as NSString).size(withAttributes: [.font: textFont]).width
     }
 
-    /// Claude'un marka rengi (terracotta). Popover'daki `Palette.claudeOrange`
-    /// ile aynı değer: haftalık pencerenin kimliği.
-    private static let claudeOrange = NSColor(
-        srgbRed: 0xD9 / 255, green: 0x77 / 255, blue: 0x57 / 255, alpha: 1
-    )
+    // MARK: - Renkler
 
-    /// Popover'daki `Palette.accent` ile birebir aynı kural: pencere kendi
-    /// renginde, %90'dan sonra kırmızı. Amber ara kademe yok; turuncu artık
-    /// haftalığın kimliği, uyarı rengi olamaz.
-    private static func windowColor(
-        _ usedPercent: Double, base: NSColor, stale: Bool, ink: NSColor
-    ) -> NSColor {
-        if stale { return ink.withAlphaComponent(0.35) }
-        if usedPercent >= 90 { return .systemRed }
-        return base
+    private static func srgb(_ r: Int, _ g: Int, _ b: Int) -> NSColor {
+        NSColor(srgbRed: CGFloat(r) / 255, green: CGFloat(g) / 255, blue: CGFloat(b) / 255, alpha: 1)
     }
 
-    /// 5 saatlik pencerenin rengi (#2A78D6), koyu çubukta bir tık açık.
-    private static func fiveHourBase(dark: Bool) -> NSColor {
-        dark
-            ? NSColor(srgbRed: 0x5B / 255, green: 0x9E / 255, blue: 0xEE / 255, alpha: 1)
-            : NSColor(srgbRed: 0x2A / 255, green: 0x78 / 255, blue: 0xD6 / 255, alpha: 1)
+    /// Claude'un marka rengi (terracotta). Popover'daki `Palette.claudeOrange`.
+    private static let claudeOrange = srgb(0xD9, 0x77, 0x57)
+
+    /// Yakıt göstergesi: KALAN oranına göre yeşilden kırmızıya. Kalan azaldıkça
+    /// renk ısınıyor. Duraklar Apple'ın canlı sistem renkleri (koyu menü
+    /// çubuğunda parlak okunuyor). Ara değerler sRGB'de doğrusal karışıyor.
+    private static let gaugeStops: [(Double, NSColor)] = [
+        (0.00, srgb(255, 69, 58)),    // kırmızı
+        (0.25, srgb(255, 159, 10)),   // turuncu
+        (0.50, srgb(255, 214, 10)),   // sarı
+        (1.00, srgb(48, 209, 88)),    // yeşil
+    ]
+
+    static func gaugeColor(remaining: Double) -> NSColor {
+        let t = min(max(remaining, 0), 1)
+        var lower = gaugeStops[0], upper = gaugeStops[gaugeStops.count - 1]
+        for i in 1..<gaugeStops.count where gaugeStops[i].0 >= t {
+            lower = gaugeStops[i - 1]; upper = gaugeStops[i]; break
+        }
+        let span = upper.0 - lower.0
+        let f = span > 0 ? (t - lower.0) / span : 0
+        func mix(_ a: CGFloat, _ b: CGFloat) -> CGFloat { a + (b - a) * f }
+        return NSColor(
+            srgbRed: mix(lower.1.redComponent, upper.1.redComponent),
+            green: mix(lower.1.greenComponent, upper.1.greenComponent),
+            blue: mix(lower.1.blueComponent, upper.1.blueComponent),
+            alpha: 1
+        )
     }
 
-    /// Renkli katman: Claude demeti + iki kutunun dolgusu.
+    /// Basit göreli parlaklık: hangi mürekkebin (koyu/açık) daha okunur olacağına
+    /// karar vermek için yeter.
+    private static func luminance(_ c: NSColor) -> CGFloat {
+        let s = c.usingColorSpace(.sRGB) ?? c
+        return 0.2126 * s.redComponent + 0.7152 * s.greenComponent + 0.0722 * s.blueComponent
+    }
+
+    /// Bir zemin renginin üstünde EN OKUNUR mürekkep.
     ///
-    /// Bilerek `isTemplate = false`: bu ögelerin rengi bilgi taşıyor (marka
-    /// rengi, kullanım şiddeti), sabit kalmalı. Apple'ın pil simgesinin kritik
-    /// durumda kırmızıya dönmesiyle aynı mantık: renk template'in dışında.
-    /// Tüm ikon TEK non-template görselde: demet + kutular + metin.
+    /// Parlak zeminde (yeşil/sarı/turuncu) zeminin koyu, doygun bir tonu
+    /// (referanstaki koyu-yeşil hissi); koyu zeminde (kırmızı dolgu, gri iz)
+    /// beyaz. Eşik parlaklıkla belirleniyor, yani renk hangi tona kayarsa
+    /// kaysın metin kendiliğinden okunur kalıyor.
+    static func readableInk(on background: NSColor) -> NSColor {
+        if luminance(background) >= 0.5 {
+            let s = background.usingColorSpace(.sRGB) ?? background
+            // Zeminin %22'si: aynı ton, çok koyu. Parlak dolguda yüksek kontrast.
+            return NSColor(srgbRed: s.redComponent * 0.22, green: s.greenComponent * 0.22,
+                           blue: s.blueComponent * 0.22, alpha: 1)
+        }
+        return .white
+    }
+
+    // MARK: - Çizim
+
+    /// Tüm ikon TEK non-template görselde: demet + pil + geri sayım.
     ///
-    /// Metin `ink` renginde çiziliyor; bu renk menü çubuğunun GERÇEK tonuna
-    /// göre (duvar kağıdı parlaklığı) çağıran tarafça seçiliyor. Template
-    /// yolu denendi ama `NSStatusBarButton.image` bizim kurulumumuzda menü
-    /// çubuğu tonuna boyanmıyordu: sistem Açık modda koyu duvar kağıdı olan
-    /// kullanıcıda metin siyah kalıyor, yanındaki sistem saati beyazken.
+    /// `isTemplate = false` bilinçli: pilin rengi (kalan kotanın sağlığı) ve
+    /// demetin rengi (servis durumu) bilgi taşıyor, menü çubuğu tonuna
+    /// boyanmamalı. `ink` yalnızca geri sayım metni ve pilin izi için menü
+    /// çubuğu tonunu (beyaz) taşıyor.
     static func colorImage(for snapshot: MenuBarSnapshot, dark: Bool, ink: NSColor) -> NSImage {
         let stale = snapshot.isStale
         let l = layout(for: snapshot)
@@ -139,33 +169,15 @@ enum MenuBarIconRenderer {
                 stale: stale, in: ctx
             )
 
-            // İki dikey kutu: sol haftalık (turuncu), sağ 5 saatlik (mavi).
-            let barY = (height - barH) / 2
-            drawBar(
-                rect: CGRect(x: l.barX, y: barY, width: barW, height: barH),
-                remaining: snapshot.hasData ? 1 - min(max(snapshot.weeklyPercent / 100, 0), 1) : 0,
-                color: windowColor(snapshot.weeklyPercent, base: claudeOrange, stale: stale, ink: ink),
-                track: ink.withAlphaComponent(stale ? 0.10 : 0.16), in: ctx
-            )
-            drawBar(
-                rect: CGRect(x: l.barX + barW + barGap, y: barY, width: barW, height: barH),
-                remaining: snapshot.hasData ? 1 - min(max(snapshot.usedPercent / 100, 0), 1) : 0,
-                color: windowColor(snapshot.usedPercent, base: fiveHourBase(dark: dark), stale: stale, ink: ink),
-                track: ink.withAlphaComponent(stale ? 0.10 : 0.16), in: ctx
+            drawPill(
+                origin: CGPoint(x: l.pillX, y: (height - pillHeight) / 2),
+                snapshot: snapshot, ink: ink, in: ctx
             )
 
-            // Metin: haftalık geri sayım (sol), 5 saatlik yüzde + saat + geri
-            // sayım (sağ). Renk çağıranın belirlediği menü çubuğu tonu.
-            let textColor = ink.withAlphaComponent(stale ? 0.5 : 1)
-            if !l.weeklyText.isEmpty {
-                draw(l.weeklyText, at: CGPoint(x: l.weeklyX, y: mid), color: textColor)
-            }
-            if !l.percentText.isEmpty {
-                draw(l.percentText, at: CGPoint(x: l.percentX, y: mid), color: textColor)
-            }
             if !l.countdownText.isEmpty {
+                let textColor = ink.withAlphaComponent(stale ? 0.5 : 1)
                 drawSymbol("clock", at: CGPoint(x: l.clockX, y: mid), size: clockSize, color: textColor)
-                draw(l.countdownText, at: CGPoint(x: l.countdownX, y: mid), color: textColor)
+                draw(l.countdownText, font: textFont, at: CGPoint(x: l.countdownX, y: mid), color: textColor)
             }
             return true
         }
@@ -173,59 +185,99 @@ enum MenuBarIconRenderer {
         return image
     }
 
-    /// Menü çubuğu metni: eşit genişlikli sistem fontu, dikeyde ortalı.
-    private static func draw(_ text: String, at origin: CGPoint, color: NSColor) {
-        let attrs: [NSAttributedString.Key: Any] = [.font: textFont, .foregroundColor: color]
+    /// macOS 26 tarzı pil: yatay kapsül, soldan dolan KALAN, içinde sayı.
+    ///
+    /// Katmanlar: iz (boş kısım, soluk) → dolgu (kalan, yakıt rengi, kapsüle
+    /// kırpılı) → sayı. Sayı DOLGUYA ortalı ve kapsül içinde kırpılmayacak
+    /// biçimde kenetli: dolgu genişse sayı dolgunun ortasında, dolgu daralınca
+    /// sola yaslanıp iz üstüne taşıyor. Taşan kısım da okunur, çünkü sayı İKİ
+    /// RENKLE çiziliyor: dolgu üstündeki bölümü zemine göre koyu, iz üstündeki
+    /// bölümü beyaz. Kırpma tam dolgu sınırından geçtiği için her piksel kendi
+    /// zeminine göre en okunur renkte.
+    private static func drawPill(
+        origin: CGPoint, snapshot: MenuBarSnapshot, ink: NSColor, in ctx: CGContext
+    ) {
+        let stale = snapshot.isStale
+        let rect = CGRect(x: origin.x, y: origin.y, width: pillWidth, height: pillHeight)
+        let radius = pillHeight / 2
+        let pillPath = CGPath(roundedRect: rect, cornerWidth: radius, cornerHeight: radius, transform: nil)
+
+        // İz: boş kısım. Koyu menü çubuğunda beyaz@0,18 → koyu-gri; üstündeki
+        // beyaz sayının okunması için bilinçli koyu (parlak-gri metni yerdi).
+        ctx.saveGState()
+        ctx.addPath(pillPath)
+        ctx.setFillColor(ink.withAlphaComponent(stale ? 0.10 : 0.18).cgColor)
+        ctx.fillPath()
+        ctx.restoreGState()
+
+        guard snapshot.hasData else { return }
+
+        let remaining = min(max(1 - snapshot.usedPercent / 100, 0), 1)
+        let fillColor = stale
+            ? ink.withAlphaComponent(0.35)
+            : gaugeColor(remaining: remaining)
+
+        // Dolgu: kapsüle kırpılı dikdörtgen. Kalan çok azken bile bir iz kalsın
+        // diye en az yarıçap kadar; sol uç kapsülü izliyor, sağ ucu düz.
+        let fillWidth = remaining <= 0 ? 0 : max(radius, rect.width * remaining)
+        let fillRect = CGRect(x: rect.minX, y: rect.minY, width: fillWidth, height: rect.height)
+        if fillWidth > 0 {
+            ctx.saveGState()
+            ctx.addPath(pillPath); ctx.clip()
+            ctx.setFillColor(fillColor.cgColor)
+            ctx.fill(fillRect)
+            ctx.restoreGState()
+        }
+
+        // Sayı: KALAN yüzde, işaretsiz.
+        let text = "\(snapshot.remainingPercent)" as NSString
+        let attrs: [NSAttributedString.Key: Any] = [.font: numberFont]
+        let size = text.size(withAttributes: attrs)
+
+        // Yatay: dolguya ortalı, kapsül içine kenetli. Dolgu sayıyı içerecek
+        // kadar genişse sayı dolgunun ortasında (dolgu büyüdükçe sağa kayar);
+        // değilse sola yaslanıp iz üstüne taşar.
+        let minX = rect.minX + pillTextInset
+        let maxX = rect.maxX - pillTextInset - size.width
+        var textX = fillRect.minX + (fillWidth - size.width) / 2
+        textX = min(max(textX, minX), max(minX, maxX))
+        let textY = rect.midY - size.height / 2
+        let point = NSPoint(x: textX, y: textY)
+
+        let inkOnFill = stale ? ink.withAlphaComponent(0.55) : readableInk(on: fillColor)
+        let inkOnTrack = ink.withAlphaComponent(stale ? 0.45 : 1)
+        let fillBoundary = fillRect.maxX
+
+        // Dolgu üstündeki bölüm: zemine göre okunur renk.
+        ctx.saveGState()
+        ctx.clip(to: CGRect(x: rect.minX, y: rect.minY,
+                            width: max(0, fillBoundary - rect.minX), height: rect.height))
+        text.draw(at: point, withAttributes: attrs.merging([.foregroundColor: inkOnFill]) { $1 })
+        ctx.restoreGState()
+
+        // İz üstündeki bölüm: beyaz.
+        ctx.saveGState()
+        ctx.clip(to: CGRect(x: fillBoundary, y: rect.minY,
+                            width: max(0, rect.maxX - fillBoundary), height: rect.height))
+        text.draw(at: point, withAttributes: attrs.merging([.foregroundColor: inkOnTrack]) { $1 })
+        ctx.restoreGState()
+    }
+
+    /// Menü çubuğu metni: verilen fontla, dikeyde ortalı.
+    private static func draw(_ text: String, font: NSFont, at origin: CGPoint, color: NSColor) {
+        let attrs: [NSAttributedString.Key: Any] = [.font: font, .foregroundColor: color]
         let size = (text as NSString).size(withAttributes: attrs)
         (text as NSString).draw(at: NSPoint(x: origin.x, y: origin.y - size.height / 2), withAttributes: attrs)
     }
 
-    // MARK: - Parçalar
-
-    /// Kalanı alttan dolduran dikey kutu.
-    private static func drawBar(
-        rect: CGRect, remaining: Double, color: NSColor, track: NSColor, in ctx: CGContext
-    ) {
-        // Köşeler neredeyse keskin. Yarıçap genişliğin yarısıyken kutunun üstü
-        // yarım daireye dönüyor ve doluluk seviyesi okunmuyordu; kutu artık
-        // kutu gibi görünüyor, üst kenarı düz bir çizgi.
-        let radius: CGFloat = 1.5
-        ctx.setFillColor(track.cgColor)
-        ctx.addPath(CGPath(roundedRect: rect, cornerWidth: radius, cornerHeight: radius, transform: nil))
-        ctx.fillPath()
-
-        let fraction = min(max(remaining, 0), 1)
-        guard fraction > 0.001 else { return }
-        // Çok az kalanda bile görünür bir iz kalmalı, yoksa "veri yok" sanılıyor.
-        let filled = max(rect.width, rect.height * fraction)
-        let fill = CGRect(x: rect.minX, y: rect.minY, width: rect.width, height: filled)
-        ctx.saveGState()
-        ctx.addPath(CGPath(roundedRect: rect, cornerWidth: radius, cornerHeight: radius, transform: nil))
-        ctx.clip()
-        ctx.setFillColor(color.cgColor)
-        ctx.addPath(CGPath(roundedRect: fill, cornerWidth: radius, cornerHeight: radius, transform: nil))
-        ctx.fillPath()
-        ctx.restoreGState()
-    }
-
-    /// Claude'un ışın demeti.
-    ///
-    /// Gerçek simge yuvarlak uçlu ÇİZGİLERDEN değil, KAMALARDAN oluşuyor:
-    /// her ışın merkeze doğru genişliyor, uca doğru daralıyor ve ucu düz
-    /// kesilmiş. Işınlar merkezde birleşip dolu bir çekirdek oluşturuyor,
-    /// boyları da belirgin biçimde düzensiz. Önceki çizim eşit kalınlıkta ince
-    /// çizgilerdi ve bambaşka bir şeye benziyordu.
-    ///
-    /// Ölçüler kurulu Claude uygulamasının kendi ikonu büyütülerek çıkarıldı;
-    /// dosya kopyalanmıyor, aynı geometri yeniden çiziliyor.
+    /// Claude'un ışın demeti (kamalardan; ölçüler kurulu uygulamanın ikonundan).
     private static func drawClaudeMark(
         center: CGPoint, radius: CGFloat, color: NSColor, stale: Bool, in ctx: CGContext
     ) {
-        // Işın boyları: markanın karakteri bu düzensizlikte.
         let lengths: [CGFloat] = [1.0, 0.70, 0.94, 0.78, 1.0, 0.66, 0.90, 0.74, 0.98, 0.68, 0.86]
         let count = lengths.count
-        let baseHalf = radius * 0.155    // merkezdeki yarı genişlik
-        let tipHalf = radius * 0.052     // uçtaki yarı genişlik
+        let baseHalf = radius * 0.155
+        let tipHalf = radius * 0.052
 
         ctx.saveGState()
         ctx.setFillColor(color.withAlphaComponent(stale ? 0.45 : 1).cgColor)
@@ -235,7 +287,6 @@ enum MenuBarIconRenderer {
             let dir = CGPoint(x: cos(angle), y: sin(angle))
             let perp = CGPoint(x: -dir.y, y: dir.x)
             let tip = radius * factor
-            // Uç düz kesik: köşeler hafif pahlı, kristal görünümü buradan geliyor.
             let chamfer = tipHalf * 0.9
 
             let path = CGMutablePath()
@@ -258,14 +309,12 @@ enum MenuBarIconRenderer {
             ctx.fillPath()
         }
 
-        // Çekirdek: kamalar merkezde birleşince kalan küçük boşlukları kapatıyor.
         ctx.addArc(center: center, radius: radius * 0.20, startAngle: 0, endAngle: .pi * 2, clockwise: false)
         ctx.fillPath()
         ctx.restoreGState()
     }
 
-    /// SF Symbol çizimi. Kum saati için elle çizim yerine sistem simgesi:
-    /// menü çubuğunun geri kalanıyla aynı optik ağırlıkta oluyor.
+    /// SF Symbol çizimi (kum saati).
     private static func drawSymbol(_ name: String, at center: CGPoint, size: CGFloat, color: NSColor) {
         let config = NSImage.SymbolConfiguration(pointSize: size, weight: .medium)
         guard let symbol = NSImage(systemSymbolName: name, accessibilityDescription: nil)?

@@ -37,7 +37,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
         self.store = store
         self.statusItem = controller
-        self.updater = AppUpdater { [weak controller] in controller?.isPopoverShown ?? false }
+        let updater = AppUpdater { [weak controller] in controller?.isPopoverShown ?? false }
+        self.updater = updater
+        // Ayarlar sayfası güncelleyiciye buradan erişiyor.
+        store.updatesAvailable = updater.isAvailable
+        store.manualUpdateCheck = { [weak updater] in updater?.checkForUpdates() }
 
         #if DEBUG
         // Geliştirme kancaları yalnızca hata ayıklama derlemesinde. Yayınlanan
@@ -88,29 +92,48 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 @MainActor
 enum BatteryPreview {
     static func render(to path: String) {
-        // (5 saatlik kullanım, haftalık kullanım, servis sağlıklı mı)
-        let cases: [(Double, Double, Bool)] = [
-            (8, 20, true), (46, 55, true), (78, 64, true), (92, 88, true), (100, 96, true), (30, 40, false),
+        // usedPercent: kalan = 100 - kullanılan. Yeşilden kırmızıya tüm bandı
+        // gezmek için birçok değer + servis kesintisi + bayat + veri yok.
+        let cases: [(String, MenuBarSnapshot)] = [
+            ("kalan 100", snap(used: 0)),
+            ("kalan 85", snap(used: 15)),
+            ("kalan 67", snap(used: 33)),
+            ("kalan 50", snap(used: 50)),
+            ("kalan 33", snap(used: 67)),
+            ("kalan 20", snap(used: 80)),
+            ("kalan 8", snap(used: 92)),
+            ("kalan 0", snap(used: 100)),
+            ("kesinti", snap(used: 40, serviceOK: false)),
+            ("bayat", snap(used: 40, stale: true)),
+            ("veri yok", MenuBarSnapshot(hasData: false, usedPercent: 0, countdownText: "", isStale: false)),
         ]
-        let tile = NSSize(width: 128, height: 34)
-        let out = NSImage(size: NSSize(width: tile.width * CGFloat(cases.count), height: tile.height * 2))
+        // Menü çubuğu 22 pt; iki ölçekte çiziyoruz: 1× (gerçek boy) ve 3×
+        // (okunurluk denetimi). Zemin koyu vibrant menü çubuğunu taklit ediyor.
+        let scales: [(String, CGFloat)] = [("1x", 1), ("3x", 3)]
+        let rowH: CGFloat = 40
+        let colW: CGFloat = 150
+        let labelH: CGFloat = 16
+        let out = NSImage(size: NSSize(
+            width: colW * CGFloat(cases.count),
+            height: (rowH + labelH) * CGFloat(scales.count)
+        ))
         out.lockFocus()
-        for (row, dark) in [(0, false), (1, true)] {
+        let barBG = NSColor(srgbRed: 0.13, green: 0.13, blue: 0.15, alpha: 1)
+        for (row, scale) in scales.enumerated() {
             for (col, item) in cases.enumerated() {
-                let origin = NSPoint(x: CGFloat(col) * tile.width, y: CGFloat(row) * tile.height)
-                (dark ? NSColor(white: 0.12, alpha: 1) : NSColor(white: 0.96, alpha: 1)).setFill()
-                NSRect(origin: origin, size: tile).fill()
-                let snap = MenuBarSnapshot(
-                    hasData: true, usedPercent: item.0, weeklyPercent: item.1,
-                    countdownText: "3:54", isStale: false, serviceOK: item.2,
-                    showPercent: true, showCountdown: true
-                )
-                // Tek görsel: demet + kutular + metin. Metin rengi menü çubuğu
-                // tonuna göre (bu önizlemede satırın açık/koyu zeminine göre).
-                let ink: NSColor = dark ? .white : .black
-                let icon = MenuBarIconRenderer.colorImage(for: snap, dark: dark, ink: ink)
-                icon.draw(at: NSPoint(x: origin.x + 6, y: origin.y + 6), from: .zero,
-                          operation: .sourceOver, fraction: 1)
+                let ox = CGFloat(col) * colW
+                let oy = CGFloat(row) * (rowH + labelH)
+                barBG.setFill()
+                NSRect(x: ox, y: oy, width: colW, height: rowH).fill()
+                let icon = MenuBarIconRenderer.colorImage(for: item.1, dark: true, ink: .white)
+                let w = icon.size.width * scale.1, h = icon.size.height * scale.1
+                icon.draw(in: NSRect(x: ox + 8, y: oy + (rowH - h) / 2, width: w, height: h),
+                          from: .zero, operation: .sourceOver, fraction: 1)
+                let attrs: [NSAttributedString.Key: Any] = [
+                    .font: NSFont.systemFont(ofSize: 9),
+                    .foregroundColor: NSColor.secondaryLabelColor,
+                ]
+                (item.0 as NSString).draw(at: NSPoint(x: ox + 8, y: oy + rowH), withAttributes: attrs)
             }
         }
         out.unlockFocus()
@@ -118,6 +141,11 @@ enum BatteryPreview {
         let png = NSBitmapImageRep(data: tiff)!.representation(using: .png, properties: [:])!
         try? png.write(to: URL(fileURLWithPath: path))
         exit(0)
+    }
+
+    private static func snap(used: Double, serviceOK: Bool = true, stale: Bool = false) -> MenuBarSnapshot {
+        MenuBarSnapshot(hasData: true, usedPercent: used, weeklyPercent: 0,
+                        countdownText: "3:54", isStale: stale, serviceOK: serviceOK)
     }
 }
 
