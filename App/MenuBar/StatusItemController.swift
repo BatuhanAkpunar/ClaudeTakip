@@ -12,6 +12,9 @@ import LimitCore
 final class StatusItemController: NSObject {
     private let statusItem = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
     private let popover = NSPopover()
+
+    /// Güncelleyici, kurulumu kullanıcı popover'a bakarken yapmamak için soruyor.
+    var isPopoverShown: Bool { popover.isShown }
     private let store: UsageStore
     private var lastSnapshot: MenuBarSnapshot?
     private var visibilityObserver: NSKeyValueObservation?

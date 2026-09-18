@@ -23,6 +23,7 @@ struct ClaudeLimitApp: App {
 final class AppDelegate: NSObject, NSApplicationDelegate {
     private var store: UsageStore?
     private var statusItem: StatusItemController?
+    private var updater: AppUpdater?
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         let store = UsageStore()
@@ -36,6 +37,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
         self.store = store
         self.statusItem = controller
+        self.updater = AppUpdater { [weak controller] in controller?.isPopoverShown ?? false }
 
         #if DEBUG
         // Geliştirme kancaları yalnızca hata ayıklama derlemesinde. Yayınlanan

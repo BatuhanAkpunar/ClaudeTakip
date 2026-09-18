@@ -13,8 +13,19 @@ OUT="dist/Claude-Limit-$VERSION.dmg"
 mkdir -p dist
 
 echo "▸ imzalanıyor ($([ "$SIGN_ID" = "-" ] && echo ad-hoc || echo "$SIGN_ID"))"
-codesign --force --deep --options runtime --sign "$SIGN_ID" "$APP" 2>/dev/null \
-  || codesign --force --deep --sign "$SIGN_ID" "$APP"
+if [ "$SIGN_ID" = "-" ]; then
+  # Ad-hoc imzada hardened runtime YOK. Hardened runtime'ın kütüphane
+  # doğrulaması, uygulamanın içine gömülü ayrı imzalı kütüphaneleri
+  # (Sparkle.framework) "farklı Team ID" diye reddediyor; ad-hoc imzada Team
+  # ID olmadığı için eşleşme hiç sağlanamıyor ve uygulama AÇILMIYOR (dyld:
+  # "mapping process and mapped file have different Team IDs"). Hardened
+  # runtime yalnızca notarizasyon için gerekli, o da Developer ID ister.
+  codesign --force --deep --sign - "$APP"
+else
+  # Gerçek kimlikte her şey aynı Team ID ile imzalanıyor; notarizasyon için
+  # hardened runtime şart.
+  codesign --force --deep --options runtime --sign "$SIGN_ID" "$APP"
+fi
 codesign --verify --deep --strict "$APP" && echo "  imza geçerli"
 
 STAGE=$(mktemp -d)

@@ -11,13 +11,19 @@ settings:
   base:
     SWIFT_VERSION: "6.0"
     SWIFT_STRICT_CONCURRENCY: complete
-    MARKETING_VERSION: "0.1.0"
-    CURRENT_PROJECT_VERSION: "1"
+    MARKETING_VERSION: "0.1.1"
+    CURRENT_PROJECT_VERSION: "2"
     DEAD_CODE_STRIPPING: YES
 
 packages:
   LimitCore:
     path: .
+  # Otomatik güncelleme. App Store dışı macOS uygulamalarının standart yolu:
+  # EdDSA ile imzalı bir besleme (appcast) okuyor, imzayı uygulamaya gömülü
+  # açık anahtarla doğruluyor, sonra indirip yerine koyuyor.
+  Sparkle:
+    url: https://github.com/sparkle-project/Sparkle
+    from: "2.6.0"
 
 targets:
   ClaudeLimit:
@@ -28,17 +34,34 @@ targets:
     dependencies:
       - package: LimitCore
         product: LimitCore
+      - package: Sparkle
+        product: Sparkle
     info:
       path: App/Info.plist
       properties:
         CFBundleName: Claude Limit
         CFBundleDisplayName: Claude Limit
-        CFBundleShortVersionString: "0.1.0"
-        CFBundleVersion: "1"
+        # Sürüm derleme ayarlarından (MARKETING_VERSION / CURRENT_PROJECT_VERSION).
+        # Elle yazılı olduğunda yayın betiği project.yml'deki sayıyı artırsa da
+        # uygulamanın içindeki sürüm değişmiyordu; güncelleme sistemi yeni
+        # sürümü eskisinden ayırt edemezdi.
+        CFBundleShortVersionString: $(MARKETING_VERSION)
+        CFBundleVersion: $(CURRENT_PROJECT_VERSION)
         LSMinimumSystemVersion: "15.0"
         # Menü çubuğu uygulaması: Dock ikonu ve ana pencere yok.
         LSUIElement: true
         NSHumanReadableCopyright: ""
+        # ── Otomatik güncelleme (Sparkle) ──
+        # Besleme her yayının kendi ek dosyası: "latest" her zaman en yeni
+        # yayının appcast.xml'ine yönlenir, ayrı bir sunucu ya da dal gerekmez.
+        SUFeedURL: https://github.com/BatuhanAkpunar/ClaudeTakip/releases/latest/download/appcast.xml
+        SUPublicEDKey: bMRNoXt1lA1b9l8AchnNNeIp0oLk3J5Z1eLIIgsZVYU=
+        # Kullanıcıya "otomatik denetlensin mi" diye sorulmuyor: açık gelir.
+        SUEnableAutomaticChecks: true
+        # Bulunan güncelleme sessizce indirilir ve kurulur.
+        SUAutomaticallyUpdate: true
+        # Saatte bir denetim: besleme birkaç KB, maliyeti yok denecek kadar az.
+        SUScheduledCheckInterval: 3600
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.batuhanakpunar.claudelimit

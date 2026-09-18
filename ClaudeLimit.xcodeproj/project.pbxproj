@@ -13,6 +13,7 @@
 		25AA1AF65D16EBCEF30493B3 /* LimitCore in Frameworks */ = {isa = PBXBuildFile; productRef = 613626D9010A1842930FCBC9 /* LimitCore */; };
 		2717755B861A45FCF7719633 /* Gauges.swift in Sources */ = {isa = PBXBuildFile; fileRef = BC7D4546117D31B856C32F1D /* Gauges.swift */; };
 		2C022758857B2C91DA1AA5DE /* SelfTest.swift in Sources */ = {isa = PBXBuildFile; fileRef = A17B88838C6585FFBF39C21B /* SelfTest.swift */; };
+		470DF41DEE21B3213EB862F3 /* Sparkle in Frameworks */ = {isa = PBXBuildFile; productRef = FFF7A7ECD43B2F7E5C8270D9 /* Sparkle */; };
 		5D8AED87AAC0976525DA64EC /* UsageStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = CB2CF4FCB20F33552BF9F28E /* UsageStore.swift */; };
 		5ECB75169E4F3E06F9D81F2A /* WalletGallery.swift in Sources */ = {isa = PBXBuildFile; fileRef = 72AFB32AC4E4AB512837BBF6 /* WalletGallery.swift */; };
 		5EDA02ACE16F8F7AD90F3C17 /* MenuBarIconRenderer.swift in Sources */ = {isa = PBXBuildFile; fileRef = 20F4A36E79A6DEBCC958DC4D /* MenuBarIconRenderer.swift */; };
@@ -22,6 +23,7 @@
 		C9D60230DA27E42A7FD317A2 /* ClaudeLimitApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3BC2465C3C1D5D89E07E61EB /* ClaudeLimitApp.swift */; };
 		CE309672CF4C60198E407690 /* Presentation.swift in Sources */ = {isa = PBXBuildFile; fileRef = C846C50D15A77A2829D6A5A9 /* Presentation.swift */; };
 		D30FCB7A89819623BCA0D75E /* SettingsPage.swift in Sources */ = {isa = PBXBuildFile; fileRef = 11B8B3BF698F6F48DF6706BF /* SettingsPage.swift */; };
+		EF8F137B86B5CE5090322A95 /* AppUpdater.swift in Sources */ = {isa = PBXBuildFile; fileRef = C555E938C3AC0FE3251BE544 /* AppUpdater.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -37,6 +39,7 @@
 		A5442A5F9C7E44C2D74AF96A /* ClaudeLimit.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = ClaudeLimit.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		BC7D4546117D31B856C32F1D /* Gauges.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Gauges.swift; sourceTree = "<group>"; };
 		C022E3C5EA7060D55D8C3FAF /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
+		C555E938C3AC0FE3251BE544 /* AppUpdater.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppUpdater.swift; sourceTree = "<group>"; };
 		C846C50D15A77A2829D6A5A9 /* Presentation.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Presentation.swift; sourceTree = "<group>"; };
 		CB2CF4FCB20F33552BF9F28E /* UsageStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UsageStore.swift; sourceTree = "<group>"; };
 		D5D73E0E28BCF72B789D11FB /* PopoverRootView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PopoverRootView.swift; sourceTree = "<group>"; };
@@ -50,6 +53,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				25AA1AF65D16EBCEF30493B3 /* LimitCore in Frameworks */,
+				470DF41DEE21B3213EB862F3 /* Sparkle in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -82,6 +86,7 @@
 				BF6212AABE5411F1B0C84E8F /* Auth */,
 				CD661E2DE5B92E4A0213B692 /* MenuBar */,
 				4FC98ED44EE67DFEF59E986C /* UI */,
+				D361504C370DE02D45470900 /* Update */,
 				C022E3C5EA7060D55D8C3FAF /* Assets.xcassets */,
 				3BC2465C3C1D5D89E07E61EB /* ClaudeLimitApp.swift */,
 				7842475A0CCEF807C55B148F /* Format.swift */,
@@ -108,6 +113,14 @@
 				E3B169F364E6E1DDAE7C893E /* StatusItemController.swift */,
 			);
 			path = MenuBar;
+			sourceTree = "<group>";
+		};
+		D361504C370DE02D45470900 /* Update */ = {
+			isa = PBXGroup;
+			children = (
+				C555E938C3AC0FE3251BE544 /* AppUpdater.swift */,
+			);
+			path = Update;
 			sourceTree = "<group>";
 		};
 		E5982C9A4B5C1C3B2E56BD75 = {
@@ -145,6 +158,7 @@
 			name = ClaudeLimit;
 			packageProductDependencies = (
 				613626D9010A1842930FCBC9 /* LimitCore */,
+				FFF7A7ECD43B2F7E5C8270D9 /* Sparkle */,
 			);
 			productName = ClaudeLimit;
 			productReference = A5442A5F9C7E44C2D74AF96A /* ClaudeLimit.app */;
@@ -171,6 +185,7 @@
 			mainGroup = E5982C9A4B5C1C3B2E56BD75;
 			minimizedProjectReferenceProxies = 1;
 			packageReferences = (
+				147597EC7E61EA6C24CDC340 /* XCRemoteSwiftPackageReference "Sparkle" */,
 				DECA49CBC426CA7764E3A1AF /* XCLocalSwiftPackageReference "." */,
 			);
 			preferredProjectObjectVersion = 77;
@@ -199,6 +214,7 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				EF8F137B86B5CE5090322A95 /* AppUpdater.swift in Sources */,
 				C9D60230DA27E42A7FD317A2 /* ClaudeLimitApp.swift in Sources */,
 				1231A7181B9D1110951EA91D /* DesignTokens.swift in Sources */,
 				8E33123165DB93CFD8C2F62B /* Format.swift in Sources */,
@@ -292,7 +308,7 @@
 				CLANG_WARN_UNREACHABLE_CODE = YES;
 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
 				COPY_PHASE_STRIP = NO;
-				CURRENT_PROJECT_VERSION = 1;
+				CURRENT_PROJECT_VERSION = 2;
 				DEAD_CODE_STRIPPING = YES;
 				DEBUG_INFORMATION_FORMAT = dwarf;
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
@@ -312,7 +328,7 @@
 				GCC_WARN_UNUSED_FUNCTION = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
 				MACOSX_DEPLOYMENT_TARGET = 15.0;
-				MARKETING_VERSION = 0.1.0;
+				MARKETING_VERSION = 0.1.1;
 				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
 				MTL_FAST_MATH = YES;
 				ONLY_ACTIVE_ARCH = YES;
@@ -359,7 +375,7 @@
 				CLANG_WARN_UNREACHABLE_CODE = YES;
 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
 				COPY_PHASE_STRIP = NO;
-				CURRENT_PROJECT_VERSION = 1;
+				CURRENT_PROJECT_VERSION = 2;
 				DEAD_CODE_STRIPPING = YES;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
 				ENABLE_NS_ASSERTIONS = NO;
@@ -373,7 +389,7 @@
 				GCC_WARN_UNUSED_FUNCTION = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
 				MACOSX_DEPLOYMENT_TARGET = 15.0;
-				MARKETING_VERSION = 0.1.0;
+				MARKETING_VERSION = 0.1.1;
 				MTL_ENABLE_DEBUG_INFO = NO;
 				MTL_FAST_MATH = YES;
 				PRODUCT_NAME = "$(TARGET_NAME)";
@@ -415,10 +431,26 @@
 		};
 /* End XCLocalSwiftPackageReference section */
 
+/* Begin XCRemoteSwiftPackageReference section */
+		147597EC7E61EA6C24CDC340 /* XCRemoteSwiftPackageReference "Sparkle" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/sparkle-project/Sparkle";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 2.6.0;
+			};
+		};
+/* End XCRemoteSwiftPackageReference section */
+
 /* Begin XCSwiftPackageProductDependency section */
 		613626D9010A1842930FCBC9 /* LimitCore */ = {
 			isa = XCSwiftPackageProductDependency;
 			productName = LimitCore;
+		};
+		FFF7A7ECD43B2F7E5C8270D9 /* Sparkle */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 147597EC7E61EA6C24CDC340 /* XCRemoteSwiftPackageReference "Sparkle" */;
+			productName = Sparkle;
 		};
 /* End XCSwiftPackageProductDependency section */
 	};
