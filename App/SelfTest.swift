@@ -2,6 +2,10 @@ import AppKit
 import SwiftUI
 import LimitCore
 
+
+// Kendi kendini test yalnızca hata ayıklama derlemesinde: yayın ikilisinde
+// ne çağrılıyor ne de derleniyor (testSnap gibi DEBUG-özel yardımcıları kullanıyor).
+#if DEBUG
 /// Uygulamayı gerçekten çalıştırarak davranışını doğrular.
 ///
 /// Var olma sebebi bir eksikti: tasarım doğrulaması `ImageRenderer` ile
@@ -324,3 +328,5 @@ enum SelfTest {
         exit(failed.isEmpty ? 0 : 1)
     }
 }
+
+#endif

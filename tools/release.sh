@@ -73,11 +73,26 @@ APP=".build/xcode-rel/Build/Products/Release/Claude Limit.app"
 rm -rf "$APP"
 xcodebuild -project ClaudeLimit.xcodeproj -scheme ClaudeLimit -configuration Release \
   -derivedDataPath .build/xcode-rel build > /tmp/claude-limit-build.log 2>&1 || true
-BUILT=$(/usr/libexec/PlistBuddy -c "Print :CFBundleShortVersionString" "$APP/Contents/Info.plist" 2>/dev/null || echo "")
-if [ "$BUILT" != "$VERSION" ]; then
-  echo "Derleme başarısız (derlenen sürüm '$BUILT', beklenen $VERSION). Günlük:"; tail -20 /tmp/claude-limit-build.log; exit 1
+# Gerçek hata (eklenti gürültüsü DEĞİL) günlükte "error:" olarak görünür.
+if grep -E "error: " /tmp/claude-limit-build.log \
+   | grep -viE "DVTPlugIn|CoreDevice|dlopen|Symbol not found|Expected in" | grep -q .; then
+  echo "Derleme hatası:"; grep -E "error: " /tmp/claude-limit-build.log \
+    | grep -viE "DVTPlugIn|CoreDevice|dlopen|Symbol not found|Expected in" | head -10; exit 1
 fi
-echo "▸ derlendi: $VERSION"
+BUILT=$(/usr/libexec/PlistBuddy -c "Print :CFBundleShortVersionString" "$APP/Contents/Info.plist" 2>/dev/null || echo "")
+[ "$BUILT" = "$VERSION" ] || { echo "Derlenen sürüm '$BUILT', beklenen $VERSION"; exit 1; }
+# Info.plist yetmez: derleme başarısız olsa bile .app iskeleti oluşuyor ve
+# sürüm yerinde kalıyor. Asıl kanıt: ÇALIŞTIRILABİLİR var, Mach-O ve AÇILIYOR.
+EXE="$APP/Contents/MacOS/$(/usr/libexec/PlistBuddy -c "Print :CFBundleExecutable" "$APP/Contents/Info.plist")"
+if [ ! -f "$EXE" ] || ! file "$EXE" | grep -q "Mach-O"; then
+  echo "Derleme EKSİK: çalıştırılabilir yok/geçersiz ($EXE). Günlük:"; tail -30 /tmp/claude-limit-build.log; exit 1
+fi
+# Duman testi: gerçekten başlıyor mu (menü çubuğu ögesi kısacık görünüp kapanır).
+"$EXE" >/dev/null 2>&1 & SMOKE=$!
+sleep 3
+if kill -0 "$SMOKE" 2>/dev/null; then kill "$SMOKE" 2>/dev/null; wait "$SMOKE" 2>/dev/null || true
+else echo "Derlenen uygulama AÇILMIYOR (çıkış kodu $?)."; exit 1; fi
+echo "▸ derlendi ve açıldı: $VERSION"
 
 # ── 3. DMG (uygulamayı yerinde imzalar) ──────────────────────────────────────
 tools/make-dmg.sh
