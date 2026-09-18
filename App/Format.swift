@@ -52,12 +52,23 @@ enum Format {
         return L.t("\(minutes) dk", "\(minutes)m")
     }
 
-    /// Grafik ekseni, 5 saatlik pencere: "14:00".
+    /// En yakın dakikaya yuvarlar.
+    ///
+    /// Sunucu sıfırlanma anını saniyesiyle veriyor ve genelde dakikanın hemen
+    /// öncesine düşüyor (09:59:59.8). `DateFormatter` saniyeyi KIRPTIĞI için
+    /// etiket "09:59da sıfırlanır" yazıyordu; gerçekte kastedilen 10:00.
+    /// Kırpmak yerine yuvarlamak, saati de günü de doğru tarafa taşıyor
+    /// (23:59:59 → ertesi gün 00:00).
+    static func roundedToMinute(_ date: Date) -> Date {
+        Date(timeIntervalSinceReferenceDate: (date.timeIntervalSinceReferenceDate / 60).rounded() * 60)
+    }
+
+    /// Grafik ekseni, 5 saatlik pencere: "14:00". Dakikaya YUVARLANIYOR.
     static func hourLabel(_ date: Date) -> String {
         let formatter = DateFormatter()
         formatter.locale = locale
         formatter.dateFormat = "HH:mm"
-        return formatter.string(from: date)
+        return formatter.string(from: roundedToMinute(date))
     }
 
     /// Başlık yanındaki mutlak sıfırlanma anı: "23 Ağu 01:39".
@@ -131,8 +142,22 @@ enum Format {
         return symbol + decimal(String(format: "%.2f", value))
     }
 
+    /// Pace: "1,3×". 1 bir EŞİK (üstü = sıfırlanmadan dolar), dolayısıyla
+    /// yuvarlama o eşiği asla geçmemeli.
+    ///
+    /// Tek ondalıkta 0,95 ile 1,05 arasındaki her değer "1,0×" oluyor: 0,96
+    /// (dolmayacak) ile 1,04 (dolacak) ekranda aynı görünüyordu. O bantta iki
+    /// ondalık gösteriliyor ve eşiğin AYNI tarafına yuvarlanıyor: 1'in altı
+    /// aşağı, üstü yukarı. Sapma en fazla 0,01; işaret hiç değişmiyor.
     static func multiplier(_ value: Double) -> String {
-        decimal(String(format: "%.1f×", value))
+        let oneDecimal = (value * 10).rounded() / 10
+        guard oneDecimal == 1, value != 1 else {
+            return decimal(String(format: "%.1f×", oneDecimal))
+        }
+        let twoDecimals = value < 1
+            ? (value * 100).rounded(.down) / 100
+            : (value * 100).rounded(.up) / 100
+        return decimal(String(format: "%.2f×", twoDecimals))
     }
 
     // MARK: - Sıfırlanma cümlesi
@@ -178,7 +203,10 @@ enum Format {
     /// Tasarımda sıfırlanma bilgisi kısaltma değil TAM CÜMLE. Türkçede ek
     /// tarihin son sözcüğüne göre değiştiği için düz birleştirme yanlış
     /// sonuç veriyor ("19 Eylülda"), bu yüzden ek hesaplanıyor.
-    static func resetSentence(_ date: Date, includeTime: Bool) -> String {
+    static func resetSentence(_ rawDate: Date, includeTime: Bool) -> String {
+        // Gün, saat ve ek AYNI yuvarlanmış andan: yoksa 23:59:59'da gün eski,
+        // saat yeni günden okunurdu.
+        let date = roundedToMinute(rawDate)
         let month = DateFormatter()
         month.locale = locale
         month.dateFormat = L.t("d MMMM", "d MMMM")
@@ -202,7 +230,8 @@ enum Format {
     }
 
     /// Yalnız saat: 5 saatlik pencerede tarih yazmak gürültü.
-    static func resetSentenceTimeOnly(_ date: Date) -> String {
+    static func resetSentenceTimeOnly(_ rawDate: Date) -> String {
+        let date = roundedToMinute(rawDate)
         guard L.isTurkish else { return "Resets at \(hourLabel(date))" }
         let parts = Calendar.current.dateComponents([.hour, .minute], from: date)
         let suffix = numberLocative((parts.minute ?? 0) != 0 ? (parts.minute ?? 0) : (parts.hour ?? 0))

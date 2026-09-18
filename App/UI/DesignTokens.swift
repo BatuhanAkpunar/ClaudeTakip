@@ -375,8 +375,12 @@ enum Palette {
     static let projection = dynamic(light: hex(0xB87B78), dark: hex(0xCF908D))
 
     /// Hız çarpanının rengi. 1× normal tempo, üstü giderek ısınır.
+    /// Pace artık kotaya oran: 1'in üstü sıfırlanmadan dolmak demek. Rampa
+    /// 1,0'dan 1,5'e: 1,5× bütçenin bir buçuk katı, yani pencerenin üçte
+    /// ikisinde tükeniyorsun. Eskiden 2,5'e kadar uzanıyordu çünkü pace
+    /// "geçmiş ortalamanın katı"ydı ve 2,5 kat orada olağandı.
     static func pace(_ multiplier: Double) -> Color {
-        let t = min(max((multiplier - 1) / 1.5, 0), 1)
+        let t = min(max((multiplier - 1) / 0.5, 0), 1)
         guard t > 0 else { return secondaryText }
         return dynamic(
             light: blend(from: hex(0x64646C), to: hex(0xB87B78), t: t),

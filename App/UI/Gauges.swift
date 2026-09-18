@@ -91,11 +91,14 @@ struct RateBadge: View {
             }
         }
         .foregroundStyle(tint)
-        .help(L.t("Bu pencere türündeki geçmiş ortalama hızın katı",
-                  "Multiple of your past average pace for this window type"))
-        .accessibilityLabel(L.t("Hız", "Pace"))
-        .accessibilityValue(L.t("Ortalamanın \(Format.multiplier(multiplier)) katı",
-                                "\(Format.multiplier(multiplier)) the average"))
+        .help(multiplier >= 1
+              ? L.t("Bu gidişle kotanın \(Format.multiplier(multiplier)) katını kullanacaksın: sıfırlanmadan önce dolar.",
+                    "At this pace you'd use \(Format.multiplier(multiplier)) your quota: it runs out before the reset.")
+              : L.t("Bu gidişle sıfırlanmada kotanın \(Format.multiplier(multiplier)) katı kullanılmış olur. 1'in üstü, sıfırlanmadan dolmak demek.",
+                    "At this pace you'll have used \(Format.multiplier(multiplier)) your quota by the reset. Above 1 means it runs out first."))
+        .accessibilityLabel(L.t("Kullanım hızı", "Pace"))
+        .accessibilityValue(L.t("Kotanın \(Format.multiplier(multiplier)) katı",
+                                "\(Format.multiplier(multiplier)) of the quota"))
     }
 }
 

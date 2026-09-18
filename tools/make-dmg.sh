@@ -9,6 +9,8 @@ APP=".build/xcode-rel/Build/Products/Release/Claude Limit.app"
 VERSION=$(/usr/libexec/PlistBuddy -c "Print :CFBundleShortVersionString" "$APP/Contents/Info.plist")
 SIGN_ID="${1:--}"   # varsayılan: ad-hoc "-"
 OUT="dist/Claude-Limit-$VERSION.dmg"
+# `dist/` git'e girmiyor; temiz bir klonda yok ve hdiutil klasörü kendisi açmıyor.
+mkdir -p dist
 
 echo "▸ imzalanıyor ($([ "$SIGN_ID" = "-" ] && echo ad-hoc || echo "$SIGN_ID"))"
 codesign --force --deep --options runtime --sign "$SIGN_ID" "$APP" 2>/dev/null \

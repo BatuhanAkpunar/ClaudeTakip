@@ -649,13 +649,9 @@ final class UsageStore {
             // eğri ve sıfırlanma zinciri dosya kısalsa bile eksilmiyor.
             let samples = archived(merging: fresh)
             // Pencere türetmesi ile TAHMİN beslemesi ayrı dilim ister.
-            // `samples` dokuz günlük: sıfırlanma zincirini kapsıyor ve grafiğin
-            // çizdiği aralık zaten bundan kısa. Ama davranış temelli haftalık
-            // tahmin geçmişte EN AZ İKİ TAM HAFTA arıyor; dokuz günlük dilimde
-            // bu matematiksel olarak imkânsız olduğu için özellik sessizce ölü
-            // kalıyor, kullanıcı aylardır veri biriktirse bile hep "yeterli
-            // geçmiş yok" yedeğine düşüyordu. Uzun dilim zaten profil için
-            // okunuyor; aynı okuma tahmine de veriliyor, ek maliyet yok.
+            // Uzun dilim yalnızca kullanım profili (En Aktif Saatler) için.
+            // Tahmin artık geçmişe bakmıyor: pace ve dolma anı pencere başından
+            // bu yana ortalama hızdan geliyor.
             let longRange = longRangeSamples(now: now)
             profile = cachedProfile(from: longRange, now: now)
 
@@ -663,7 +659,7 @@ final class UsageStore {
                 let corrected = serverCorrected(state, server: serverUsage?.fiveHour)
                 return WindowPresentation.make(
                     state: state,
-                    projection: projector.project(corrected, samples: longRange, now: now),
+                    projection: projector.project(corrected, now: now),
                     samples: samples,
                     now: now,
                     server: serverUsage?.fiveHour
@@ -673,7 +669,7 @@ final class UsageStore {
                 let corrected = serverCorrected(state, server: serverUsage?.sevenDay)
                 return WindowPresentation.make(
                     state: state,
-                    projection: projector.project(corrected, samples: longRange, now: now),
+                    projection: projector.project(corrected, now: now),
                     samples: samples,
                     now: now,
                     server: serverUsage?.sevenDay
@@ -863,16 +859,12 @@ final class UsageStore {
         }
 
         let samples = (try? history?.samples(since: now.addingTimeInterval(-9 * 24 * 3600))) ?? []
-        // Tahmin uzun geçmiş ister; grafik kısa dilimle çiziliyor. Gerekçe
-        // için refreshQuota'daki nota bak.
-        let longRange = longRangeSamples(now: now)
-
         fiveHour = serverUsage.fiveHour.flatMap { window -> WindowPresentation? in
             guard let resetsAt = window.resetsAt else { return nil }
             let state = WindowState.fromServer(kind: .fiveHour, utilization: window.utilization, resetsAt: resetsAt)
             return WindowPresentation.make(
                 state: state,
-                projection: projector.project(state, samples: longRange, now: now),
+                projection: projector.project(state, now: now),
                 samples: samples,
                 now: now,
                 server: window
@@ -883,7 +875,7 @@ final class UsageStore {
             let state = WindowState.fromServer(kind: .sevenDay, utilization: window.utilization, resetsAt: resetsAt)
             return WindowPresentation.make(
                 state: state,
-                projection: projector.project(state, samples: longRange, now: now),
+                projection: projector.project(state, now: now),
                 samples: samples,
                 now: now,
                 server: window

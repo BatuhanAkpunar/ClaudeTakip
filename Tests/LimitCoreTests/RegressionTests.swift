@@ -187,56 +187,6 @@ struct StatisticsTests {
         #expect(profile.hourly[14] > profile.hourly[3])
     }
 
-    /// CE3: aynı davranış, farklı örnekleme sıklığı → aynı taban hız.
-    ///
-    /// Eski payda yalnızca "artışın görüldüğü" aralıkları topluyordu; yüzde tam
-    /// sayı olduğu için sık örneklemede taban, örnekleme aralığının tersiyle
-    /// ölçekleniyordu. İki cihazın verisi buluttan birleşince taban kendiliğinden
-    /// katlanıyor, pace yarıya düşüyordu.
-    @Test("Taban hız örnekleme sıklığından bağımsız")
-    func baselineIsSamplingIndependent() {
-        let projector = Projector()
-        let start = date(1, 9, 0)
-        let now = date(1, 12, 0)
-
-        // Üç saatte 36 puan = 12 puan/saat. Beş dakikada bir örnek.
-        var coarse: [QuotaSample] = []
-        for step in 0...36 {
-            coarse.append(sample(start.addingTimeInterval(Double(step) * 300), step))
-        }
-        // Aynı davranış, bir dakikada bir örnek: değer yine beş dakikada bir artıyor.
-        var fine: [QuotaSample] = []
-        for step in 0...180 {
-            fine.append(sample(start.addingTimeInterval(Double(step) * 60), step / 5))
-        }
-
-        let a = projector.baselineRate(.fiveHour, samples: coarse, now: now)
-        let b = projector.baselineRate(.fiveHour, samples: fine, now: now)
-        #expect(a != nil && b != nil)
-        #expect(abs((a ?? 0) - 12) < 0.5)
-        #expect(abs((a ?? 0) - (b ?? 0)) < 0.5)
-    }
-
-    /// CE2: sabit hız, sabit desen → pace 1,0 civarı.
-    @Test("Değişmeyen davranışta pace bire yakın")
-    func steadyBehaviourGivesUnitPace() {
-        let projector = Projector()
-        let start = date(1, 9, 0)
-        let now = date(1, 12, 0)
-        var samples: [QuotaSample] = []
-        for step in 0...36 {
-            samples.append(sample(start.addingTimeInterval(Double(step) * 300), step))
-        }
-
-        let base = projector.baselineRate(.fiveHour, samples: samples, now: now) ?? 0
-        // Pencere başından ortalama hız: 3 saatte 36 puan = 12 puan/saat.
-        let rate = projector.averageRate(
-            kind: .fiveHour, utilization: 36, windowStart: start, now: now
-        )
-        #expect(base > 0)
-        #expect(abs(rate / base - 1) < 0.1)
-    }
-
     /// CE4: bir dakikalık aralıktan hız türetilmemeli.
     ///
     /// Yüzde tam sayı: bir dakikada görülen tek puanlık artış saatte 60 puana
@@ -257,8 +207,7 @@ struct StatisticsTests {
     /// Dolma anı ile ortalama hızdan türetilen an birebir aynı olmalı.
     @Test("Dolma anı kullanıcının formülüyle birebir aynı")
     func fillTimeMatchesFormula() throws {
-        // 5 SAATLİK pencere doğrusal kaldı: kısa pencerede davranış modeli
-        // anlamsız, kullanıcının formülü (Geçen × 100/Kullanım) geçerli.
+        // Kullanıcının formülü: Tahmini Toplam Süre = Geçen × 100 / Kullanım.
         let projector = Projector()
         let now = date(1, 14, 0)
         let start = date(1, 12, 0)   // 2 saat önce başladı
@@ -271,69 +220,13 @@ struct StatisticsTests {
             windowStart: start, resetAt: date(1, 17, 0),
             startUncertainty: 0, isIdle: false, observedResets: []
         )
-        let projection = try #require(projector.project(state, samples: samples, now: now))
-        #expect(projection.usesHistory == false)
+        let projection = try #require(projector.project(state, now: now))
 
         // Geçen 2 saat, kullanım %12 → toplam 2 × (100/12) = 16,7 saat.
         let elapsed = now.timeIntervalSince(start) / 3600
         let expectedFill = start.addingTimeInterval(elapsed * (100 / 12) * 3600)
         let fill = try #require(projection.fillAt)
         #expect(abs(fill.timeIntervalSince(expectedFill)) < 120)
-    }
-
-    /// Haftalık tahmin, yeterli geçmiş varsa geçmiş davranışa dayanır ve
-    /// doğrusal DEĞİL bükülü bir eğri üretir.
-    @Test("Haftalık tahmin geçmiş davranış eğrisine dayanır")
-    func weeklyUsesBehaviouralCurve() throws {
-        let projector = Projector()
-        let dur: TimeInterval = 7 * 24 * 3600
-
-        // Üç tam geçmiş hafta: her hafta sonunda %100'e ulaşmış, ama ritim
-        // düzgün DEĞİL (ilk yarı yavaş, ikinci yarı hızlı).
-        var samples: [QuotaSample] = []
-        let base = date(1, 0, 0)
-        for week in 0..<3 {
-            let wStart = base.addingTimeInterval(Double(week) * dur)
-            for h in stride(from: 0, through: 168, by: 6) {
-                let frac = Double(h) / 168
-                // İkinci yarıda hızlanan birikim (konveks): frac^2 gibi.
-                let util = Int((frac * frac * 100).rounded())
-                samples.append(sample(wStart.addingTimeInterval(Double(h) * 3600), 0, util))
-            }
-            // Hafta sonu sıfırlanma: bir sonraki hafta 0'dan başlıyor.
-            samples.append(sample(wStart.addingTimeInterval(dur - 1), 0, 100))
-        }
-
-        // Dördüncü (mevcut) hafta: 3 gün geçti, kullanım geçmiş ortalamayla uyumlu.
-        let curStart = base.addingTimeInterval(3 * dur)
-        let now = curStart.addingTimeInterval(3 * 24 * 3600)   // 3. gün
-        for h in stride(from: 0, through: 72, by: 6) {
-            let frac = Double(h) / 168
-            samples.append(sample(curStart.addingTimeInterval(Double(h) * 3600), 0, Int((frac * frac * 100).rounded())))
-        }
-        let curUtil = Int((pow(72.0 / 168, 2) * 100).rounded())
-
-        let state = WindowState(
-            kind: .sevenDay, utilization: curUtil,
-            windowStart: curStart, resetAt: curStart.addingTimeInterval(dur),
-            startUncertainty: 0, isIdle: false, observedResets: []
-        )
-        let projection = try #require(projector.project(state, samples: samples, now: now))
-        #expect(projection.usesHistory == true)
-        #expect(projection.forecast.count > 5)
-
-        // Eğri konveks: ikinci yarıdaki artış birinci yarıdakinden büyük.
-        // Doğrusal olsaydı iki yarının eğimi eşit olurdu.
-        let curve = projection.forecast
-        let firstHalf = curve.filter { $0.position < 0.75 }
-        let secondHalf = curve.filter { $0.position >= 0.75 }
-        if let f0 = firstHalf.first, let f1 = firstHalf.last,
-           let s0 = secondHalf.first, let s1 = secondHalf.last,
-           f1.position > f0.position, s1.position > s0.position {
-            let slope1 = (f1.utilization - f0.utilization) / (f1.position - f0.position)
-            let slope2 = (s1.utilization - s0.utilization) / (s1.position - s0.position)
-            #expect(slope2 > slope1)
-        }
     }
 
     /// Sıfırlanma kuralı: gürültü sıfırlanma değil, boşluk sıfırlanmadır.
@@ -402,39 +295,12 @@ struct StatisticsTests {
                 windowStart: start, resetAt: start.addingTimeInterval(kind.duration),
                 startUncertainty: 0, isIdle: false, observedResets: []
             )
-            let projection = try #require(projector.project(state, samples: samples, now: now))
+            let projection = try #require(projector.project(state, now: now))
             #expect(projection.forecast.isEmpty, "\(kind) dolmuşken eğri üretilmemeli")
             // Eğri boş olmasa bile ilk nokta asla tavanda olmamalı: grafik
             // döngüsünün indeks tabanı buna güveniyor.
             if let first = projection.forecast.first { #expect(first.utilization < 100) }
         }
-    }
-
-    /// Geçmiş yetersizse haftalık tahmin "günde 10 saat" aktif-saat modeline
-    /// düşer: takvim saati (168) değil aktif saat (70) kullanılıyor.
-    @Test("Geçmiş yoksa aktif-saat modeline düşer")
-    func weeklyFallsBackToActiveHours() throws {
-        let projector = Projector()
-        let dur: TimeInterval = 7 * 24 * 3600
-        let start = date(1, 0, 0)
-        let now = start.addingTimeInterval(2 * dur / 7)   // 2. gün
-
-        // Yalnızca mevcut hafta, geçmiş yok.
-        var samples: [QuotaSample] = []
-        for h in stride(from: 0, through: 48, by: 4) {
-            samples.append(sample(start.addingTimeInterval(Double(h) * 3600), 0, Int(Double(h) / 4)))
-        }
-        let state = WindowState(
-            kind: .sevenDay, utilization: 12,
-            windowStart: start, resetAt: start.addingTimeInterval(dur),
-            startUncertainty: 0, isIdle: false, observedResets: []
-        )
-        let projection = try #require(projector.project(state, samples: samples, now: now))
-        #expect(projection.usesHistory == false)
-
-        // Aktif saat: 2 günde 7/24 olsaydı 48 saat, aktif modelle ~20 saat.
-        let active = projector.activeHours(from: start, to: now)
-        #expect(active < 30 && active > 10)
     }
 
     /// A6: kaynaklar arası bir puanlık gürültü sıfırlanma sayılmamalı.

@@ -251,7 +251,7 @@ struct WindowPresentation: Equatable {
     let isAwaitingReset: Bool
     let history: [SparkPoint]
     /// Gelecek tahmin eğrisi (x: pencere konumu, y: kullanım%). Grafikteki
-    /// kesikli çizgi bunu izliyor; haftalıkta davranış temelli, eğri.
+    /// kesikli çizgi bunu izliyor: şimdiden pencere sonuna düz çizgi.
     let forecast: [SparkPoint]
     let isIdle: Bool
 
@@ -370,15 +370,10 @@ struct WindowPresentation: Equatable {
                 title: L.t("Tahmini Aşım", "Projected Overrun"),
                 value: state.kind == .fiveHour ? Format.hourLabel(fillAt) : Format.stamp(fillAt),
                 isWarning: true,
-                basis: projection.usesHistory
-                    ? L.t(
-                        "Geçmiş haftalardaki kullanım alışkanlığına göre; hafta boyunca kullanımı nasıl dağıttığını dikkate alıyor.",
-                        "Based on your usage habits in past weeks; it accounts for how you spread usage across the week."
-                    )
-                    : L.t(
-                        "Günde 10 saat aktif kullanım varsayılarak; henüz alışkanlık çıkaracak kadar geçmiş yok.",
-                        "Assuming 10 active hours per day; not enough history yet to model your habits."
-                    )
+                basis: L.t(
+                    "Şu ana kadarki ortalama hızla devam edersen: geçen süre × 100 ÷ kullanım.",
+                    "If you keep your average pace so far: elapsed time × 100 ÷ usage."
+                )
             )
         }
 
@@ -402,9 +397,10 @@ struct WindowPresentation: Equatable {
                     : resetAt.map { state.kind == .fiveHour
                         ? Format.resetSentenceTimeOnly($0)
                         : Format.resetSentence($0, includeTime: true) }),
-            // Pace, 1'in altında da gösteriliyor: "ortalamanın yarısı hızla
-            // gidiyorsun" en az "iki katı" kadar bilgi. Önceden hız sıfırken
-            // gizleniyordu, ama duruş da bir durumdur.
+            // Pace = pencere sonunda öngörülen kullanım ÷ kota; tahminle aynı
+            // modelden, yani 1'in üstü ile "Tahmini Aşım" her zaman birlikte.
+            // 1'in altında da gösteriliyor: "sıfırlanmada kotanın 0,6'sı" en az
+            // "1,3'ü" kadar bilgi.
             paceMultiplier: projection?.multiplier,
             projectionNote: note,
             isFull: used >= 100,

@@ -137,9 +137,9 @@ for kind in WindowKind.allCases {
     let recent = state.observedResets.prefix(4).map { fmt($0) }.joined(separator: ", ")
     print("  gözlenen     \(state.observedResets.count) sıfırlanma [\(recent)]")
 
-    if let p = projector.project(state, samples: samples, now: now) {
+    if let p = projector.project(state, now: now) {
         print("  hız          %\(String(format: "%.1f", p.ratePerHour))/saat", terminator: "")
-        if let m = p.multiplier { print("  (ortalamanın \(String(format: "%.1f", m))× katı)") } else { print("") }
+        if let m = p.multiplier { print("  (bu gidişle sıfırlanmada kotanın \(String(format: "%.2f", m))× katı)") } else { print("") }
         print("  projeksiyon  pencere sonunda %\(String(format: "%.0f", p.projectedUtilization))")
         if let fillAt = p.fillAt {
             let label = p.willOverrun ? "UYARI       " : "dolma anı   "
@@ -207,23 +207,31 @@ if CommandLine.arguments.contains("perf") {
     timed("UsageProfile.build (60 gün)") { _ = UsageProfile.build(from: long) }
     let d = WindowDeriver(); let pr = Projector()
     if let st = d.derive(.sevenDay, from: short) {
-        timed("projeksiyon (60 günlük dilim)") { _ = pr.project(st, samples: long) }
-        timed("projeksiyon (9 günlük dilim)") { _ = pr.project(st, samples: short) }
+        timed("projeksiyon (60 günlük dilim)") { _ = pr.project(st) }
+        timed("projeksiyon (9 günlük dilim)") { _ = pr.project(st) }
     }
     print(String(repeating: "─", count: 62))
     exit(0)
 }
 
-// ── Haftalık davranış-temelli tahmin doğrulaması ──────────────────────────────
+// ── Haftalık tahmin doğrulaması (kullanıcının formülü) ──────────────────────
 if CommandLine.arguments.contains("forecast") {
-    print("\nHAFTALIK TAHMİN (davranış temelli)")
+    print("\nHAFTALIK TAHMİN (ideal kullanım = geçen ÷ toplam × 100)")
     let store = try? HistoryStore()
     let allSamples: [QuotaSample] = ((try? store?.samples(since: Date(timeIntervalSince1970: 0))) ?? nil) ?? []
     let deriver = WindowDeriver()
     let projector = Projector()
-    if let state = deriver.derive(.sevenDay, from: allSamples), let p = projector.project(state, samples: allSamples) {
+    if let state = deriver.derive(.sevenDay, from: allSamples), let p = projector.project(state),
+       let start = state.windowStart, let reset = state.resetAt {
+        let elapsed = Date().timeIntervalSince(start) / 3600
+        let total = reset.timeIntervalSince(start) / 3600
+        let ideal = elapsed / total * 100
         print("  kullanım        %\(state.utilization)")
-        print("  geçmişe mi dayalı: \(p.usesHistory ? "EVET (davranış eğrisi)" : "hayır (aktif-saat/doğrusal)")")
+        print("  geçen / toplam  \(String(format: "%.1f", elapsed)) / \(String(format: "%.0f", total)) saat")
+        print("  ideal kullanım  %\(String(format: "%.2f", ideal))")
+        if let m = p.multiplier {
+            print("  pace            \(String(format: "%.2f", m))×  (= %\(state.utilization) ÷ %\(String(format: "%.2f", ideal)))")
+        }
         print("  pencere sonunda  %\(Int(p.projectedUtilization.rounded()))")
         if let f = p.fillAt {
             let df = DateFormatter(); df.dateFormat = "dd MMM HH:mm"; df.locale = Locale(identifier: "tr_TR")
@@ -232,20 +240,6 @@ if CommandLine.arguments.contains("forecast") {
             print("  %100'e ulaşma    pencere içinde ulaşmıyor")
         }
         print("  aşım var mı      \(p.willOverrun ? "EVET" : "hayır")")
-        print("  eğri nokta sayısı \(p.forecast.count)")
-        // Uygulamanın kullandığı iki dilimi karşılaştır: 9 günlük dilim
-        // davranış modelini besleyemez (2 tam hafta gerekir), 60 günlük besler.
-        let short = allSamples.filter { $0.date >= Date().addingTimeInterval(-9 * 24 * 3600) }
-        let long = allSamples.filter { $0.date >= Date().addingTimeInterval(-60 * 24 * 3600) }
-        for (ad, dilim) in [("9 gün (eski uygulama yolu)", short), ("60 gün (yeni uygulama yolu)", long)] {
-            if let st = deriver.derive(.sevenDay, from: dilim), let pp = projector.project(st, samples: dilim) {
-                print("  \(ad): örnek=\(dilim.count) usesHistory=\(pp.usesHistory) sonu=%\(Int(pp.projectedUtilization.rounded()))")
-            }
-        }
-        if p.forecast.count > 2 {
-            let mid = p.forecast[p.forecast.count/2]
-            print("  eğri ortası      pos \(String(format: "%.2f", mid.position)) -> %\(Int(mid.utilization.rounded()))")
-        }
     } else {
         print("  tahmin üretilemedi")
     }

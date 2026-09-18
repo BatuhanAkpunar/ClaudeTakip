@@ -28,6 +28,24 @@ enum SelfTest {
     /// Tasarımdaki "19 Eylülde sıfırlanır" cümlesi Türkçede ekin tarihe göre
     /// değişmesini gerektiriyor. On iki ay adı ve saat ekleri elle yazılmış
     /// bir tablo değil kuraldan türetiliyor, dolayısıyla sınanması gerekiyor.
+    /// Pace'te 1 bir EŞİK: üstü sıfırlanmadan dolmak demek. Tek ondalıkla
+    /// 0,96 ve 1,04 ikisi de "1,0×" görünüyordu; yuvarlama eşiği geçmemeli.
+    private static func checkPaceFormat() {
+        let cases: [(Double, String)] = [
+            (0.6, "0,6×"), (1.3, "1,3×"), (1.0, "1,0×"), (0.949, "0,9×"), (1.051, "1,1×"),
+            (0.96, "0,96×"), (1.04, "1,04×"), (0.996, "0,99×"), (1.004, "1,01×"),
+        ]
+        guard L.isTurkish else {
+            check("Pace biçimi", "İngilizce arayüz, atlandı", true)
+            return
+        }
+        let wrong = cases.compactMap { value, expected in
+            Format.multiplier(value) == expected ? nil : "\(value) → \(Format.multiplier(value)) (beklenen \(expected))"
+        }
+        check("Pace biçimi eşiği geçmiyor", wrong.isEmpty ? "\(cases.count) örnek doğru" : wrong.joined(separator: " · "),
+              wrong.isEmpty)
+    }
+
     private static func checkResetSentences() {
         guard L.isTurkish else {
             check("Sıfırlanma cümlesi", "İngilizce arayüz, atlandı", true)
@@ -61,6 +79,19 @@ enum SelfTest {
             let got = Format.resetSentenceTimeOnly(date(19, 9, h, m))
             if got != "\(expected) sıfırlanır" { badTimes.append("\(h):\(m) → \(got)") }
         }
+        // Sunucu saniyeli veriyor; etiket dakikaya YUVARLANMALI, kırpılmamalı.
+        let roundings: [(Date, String)] = [
+            (date(19, 9, 9, 59).addingTimeInterval(59.8), "10:00da sıfırlanır"),
+            (date(19, 9, 9, 59).addingTimeInterval(29), "09:59da sıfırlanır"),
+            (date(19, 9, 9, 59).addingTimeInterval(31), "10:00da sıfırlanır"),
+        ]
+        for (d, expected) in roundings {
+            let got = Format.resetSentenceTimeOnly(d)
+            if got != expected { badTimes.append("yuvarlama: \(got) (beklenen \(expected))") }
+        }
+        let midnight = Format.resetSentence(date(18, 9, 23, 59).addingTimeInterval(45), includeTime: true)
+        if !midnight.hasPrefix("19 Eylül 00:00") { badTimes.append("gece yarısı: \(midnight)") }
+
         check("Sıfırlanma cümlesi: saat eki",
               badTimes.isEmpty ? "8 örnek doğru" : badTimes.joined(separator: " · "),
               badTimes.isEmpty)
@@ -76,6 +107,7 @@ enum SelfTest {
         checkSignatureAndStorage()
         checkDataLayers(store)
         checkResetSentences()
+        checkPaceFormat()
 
         report()
     }
