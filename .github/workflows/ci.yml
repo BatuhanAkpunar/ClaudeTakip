@@ -143,8 +143,11 @@ jobs:
             BASE_SHA="${{ github.event.pull_request.base.sha }}"
           elif [ -n "${{ inputs.base }}" ]; then
             BASE_SHA=$(git rev-parse "${{ inputs.base }}")
-          else
+          elif git rev-parse -q --verify HEAD~1 >/dev/null; then
             BASE_SHA=$(git rev-parse HEAD~1)
+          else
+            # İlk commit: kıyaslanacak önceki hâl yok, kendisiyle kıyaslanır.
+            BASE_SHA=$HEAD_SHA
           fi
           echo "head=$HEAD_SHA" >> "$GITHUB_OUTPUT"
           echo "base=$BASE_SHA" >> "$GITHUB_OUTPUT"
