@@ -1,0 +1,281 @@
+name: Derleme
+
+# Her push ve PR'da üç şey sınanıyor:
+#   build   — uygulama Release VE Debug derleniyor, paket testleri çalışıyor.
+#   görsel  — bu commit ile bir öncekinin ekranları aynı işte render edilip
+#             piksel özetleri karşılaştırılıyor.
+#   cloud   — Worker kaynağı (cloud/src) tsc ile tip denetiminden geçiyor,
+#             ardından istemcinin dayandığı protokol testleri çalışıyor.
+#
+# Debug neden ayrı: ~600 satırlık `#if DEBUG` kodu (SelfTest, önizleme
+# render'ları, WalletGallery) Release derlemesinde hiç derlenmiyor. Yalnızca
+# Release sınanırken bu kod çürüyordu ve kimse fark etmiyordu.
+#
+# Görsel iş neden var: uygulamanın arayüz tarafında test yok. Derleyici
+# "derleniyor" der ama bir pikselin kaydığını söylemez. Refactor boyunca her
+# commit'in ekranı bir öncekiyle BİREBİR aynı çıkmalı; farklıysa iş kırmızı.
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+    inputs:
+      base:
+        description: "Görsel karşılaştırmanın tabanı (boşsa HEAD~1)"
+        required: false
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: macos-latest
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        configuration: [Release, Debug]
+    name: build (${{ matrix.configuration }})
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Xcode sürümünü yaz
+        run: xcodebuild -version
+
+      - name: xcodegen kur
+        run: brew install xcodegen
+
+      # `ClaudeLimit.xcodeproj` depoda duruyor ama TÜRETİLMİŞ bir dosya.
+      # Yeniden üretmek onu `project.yml` ile eşitliyor.
+      - name: Projeyi üret
+        run: xcodegen generate
+
+      # Eşit değilse uyarı veriyor ve üretilen dosyanın TAMAMINI günlüğe
+      # basıyor: bu makinede xcodegen olmadığı için eşitlenmiş pbxproj'u
+      # commit'lemenin tek yolu onu günlükten almak.
+      - name: xcodeproj project.yml ile eşit mi
+        if: matrix.configuration == 'Release'
+        run: |
+          if [ -n "$(git status --porcelain ClaudeLimit.xcodeproj)" ]; then
+            echo "::warning::ClaudeLimit.xcodeproj, project.yml ile eşit değil; xcodegen yeniden üretti."
+            git --no-pager diff --stat ClaudeLimit.xcodeproj
+            echo "===PBXPROJ-BASLANGIC==="
+            base64 < ClaudeLimit.xcodeproj/project.pbxproj
+            echo "===PBXPROJ-BITIS==="
+          fi
+
+      - name: Uygulamayı derle (${{ matrix.configuration }})
+        run: |
+          set -o pipefail
+          LOG="$RUNNER_TEMP/build.log"
+          DD=".build/xcode-ci-${{ matrix.configuration }}"
+          # xcodebuild eklenti gürültüsü yüzünden başarıda bile sıfırdan farklı
+          # dönebiliyor; gerçek ölçüt aşağıdaki Mach-O denetimi. Hata olursa
+          # derleyici satırları günlüğün başına çıkarılıyor, 40 satırlık bir
+          # kuyrukta kaybolmasın diye.
+          xcodebuild -project ClaudeLimit.xcodeproj -scheme ClaudeLimit \
+            -configuration ${{ matrix.configuration }} -derivedDataPath "$DD" \
+            build > "$LOG" 2>&1 || true
+          APP="$DD/Build/Products/${{ matrix.configuration }}/Claude Takip.app"
+          # .app ve Info.plist, çalıştırılabilir bağlanamadığında da oluşabiliyor;
+          # bu yüzden Mach-O ayrıca denetleniyor.
+          EXE=""
+          if [ -f "$APP/Contents/Info.plist" ]; then
+            EXE="$APP/Contents/MacOS/$(/usr/libexec/PlistBuddy -c "Print :CFBundleExecutable" "$APP/Contents/Info.plist")"
+          fi
+          if [ -z "$EXE" ] || [ ! -f "$EXE" ] || ! file "$EXE" | grep -q "Mach-O"; then
+            echo "::error::${{ matrix.configuration }} derlemesi başarısız"
+            echo "=== derleyici hataları ==="
+            grep -E "(error|warning: .*will be an error): " "$LOG" \
+              | grep -viE "DVTPlugIn|CoreDevice|dlopen|Symbol not found|Expected in" | sort -u | head -60
+            echo "=== günlüğün sonu ==="
+            tail -40 "$LOG"
+            exit 1
+          fi
+          echo "▸ derlendi (${{ matrix.configuration }}): $(/usr/libexec/PlistBuddy -c "Print :CFBundleShortVersionString" "$APP/Contents/Info.plist")"
+
+      # `pipefail` şart: onsuz boru hattının çıkış kodu `tee`nin 0'ı olur ve
+      # başarısız testler adımı düşürmez. Ek olarak çalıştırmanın "passed"
+      # ile bittiği ayrıca denetleniyor.
+      - name: Paket testleri
+        if: matrix.configuration == 'Release'
+        env:
+          # Biçimlendirme testleri saat dilimine bağlı; dilim açıkça sabit.
+          TZ: UTC
+        run: |
+          set -o pipefail
+          swift test 2>&1 | tee "$RUNNER_TEMP/test.log"
+          if grep -qE "Test run with [0-9]+ tests? .*failed" "$RUNNER_TEMP/test.log"; then
+            echo "::error::başarısız test var"; exit 1
+          fi
+          grep -E "Test run with [0-9]+ tests? .*passed" "$RUNNER_TEMP/test.log" \
+            || { echo "::error::test çalıştırması 'passed' ile bitmedi"; exit 1; }
+          # Taban: taşımalarda düşen bir testi yakalar. @Test ekleyen ya da
+          # silen her değişiklik bu sayıyı aynı commit'te günceller.
+          N=$(grep -oE 'Test run with [0-9]+ tests' "$RUNNER_TEMP/test.log" | grep -oE '[0-9]+' | tail -1)
+          MIN_TESTS=145
+          [ "${N:-0}" -ge "$MIN_TESTS" ] || { echo "::error::test sayısı $N < $MIN_TESTS"; exit 1; }
+
+  visual:
+    runs-on: macos-latest
+    timeout-minutes: 40
+    name: görsel regresyon
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: xcodegen kur
+        run: brew install xcodegen
+
+      # Uygulama açılışta bulut eşitlemesi başlatıyor ve varsayılan açık:
+      # kapatılmazsa her CI çalıştırması ÜRETİMDEKİ Worker'a gerçek bir cihaz
+      # kaydeder.
+      - name: Bulut eşitlemesini kapat
+        run: defaults write com.batuhanakpunar.claudelimit cloudSyncEnabled -bool false
+
+      - name: Karşılaştırılacak commit'leri belirle
+        id: refs
+        run: |
+          HEAD_SHA=$(git rev-parse HEAD)
+          if [ "${{ github.event_name }}" = "pull_request" ]; then
+            BASE_SHA="${{ github.event.pull_request.base.sha }}"
+          elif [ -n "${{ inputs.base }}" ]; then
+            BASE_SHA=$(git rev-parse "${{ inputs.base }}")
+          else
+            BASE_SHA=$(git rev-parse HEAD~1)
+          fi
+          echo "head=$HEAD_SHA" >> "$GITHUB_OUTPUT"
+          echo "base=$BASE_SHA" >> "$GITHUB_OUTPUT"
+          echo "▸ karşılaştırma: $(git log -1 --format='%h %s' "$BASE_SHA")  →  $(git log -1 --format='%h %s' "$HEAD_SHA")"
+
+      - name: Render betiğini hazırla
+        run: |
+          cat > "$RUNNER_TEMP/render.sh" <<'SH'
+          #!/bin/bash
+          # Kullanım: render.sh <çıktı-klasörü> <türetilmiş-veri-klasörü>
+          # Her render ayrı bir açılış: kancalar işini bitirince exit(0) ile
+          # çıkıyor. macOS'ta `timeout` yok, perl'ün alarm'ı onun yerine.
+          set -u
+          OUT="$1"; DD="$2"
+          mkdir -p "$OUT"
+          EXE="$DD/Build/Products/Debug/Claude Takip.app/Contents/MacOS/Claude Takip"
+          one() {  # ad, ortam değişkeni, koyu (0/1)
+            # `exec { $ARGV[0] } @ARGV` biçimi ŞART: tek argümanlı `exec @ARGV`
+            # yolu kabuk gibi boşluklardan bölüyor ("Claude Takip.app"), olmayan
+            # bir dosyayı çalıştırmaya kalkıyor ve perl sessizce 0 ile çıkıyor.
+            env CLAUDE_LIMIT_NO_DESKTOP=1 CLAUDE_LIMIT_RENDER_DARK="$3" "$2=$OUT/$1.png" \
+              perl -e 'alarm shift; exec { $ARGV[0] } @ARGV or die "exec: $!\n"' 60 "$EXE" \
+              > "$OUT/$1.log" 2>&1
+            local rc=$?
+            if [ -f "$OUT/$1.png" ]; then
+              echo "  ✓ $1"
+            else
+              echo "  ✗ $1 (çıkış $rc, dosya yok) — uygulama çıktısı:"
+              sed 's/^/      /' "$OUT/$1.log" | tail -15
+            fi
+          }
+          one battery        CLAUDE_LIMIT_RENDER_BATTERY  0
+          one wallet-light   CLAUDE_LIMIT_RENDER_WALLET   0
+          one wallet-dark    CLAUDE_LIMIT_RENDER_WALLET   1
+          one settings-light CLAUDE_LIMIT_RENDER_SETTINGS 0
+          one settings-dark  CLAUDE_LIMIT_RENDER_SETTINGS 1
+          one popover-light  CLAUDE_LIMIT_RENDER          0
+          one popover-dark   CLAUDE_LIMIT_RENDER          1
+          SH
+          chmod +x "$RUNNER_TEMP/render.sh"
+
+      - name: Bu commit — derle ve render et
+        run: |
+          set -o pipefail
+          xcodegen generate
+          xcodebuild -project ClaudeLimit.xcodeproj -scheme ClaudeLimit -configuration Debug \
+            -derivedDataPath .build/vis-head build > "$RUNNER_TEMP/head.log" 2>&1 || true
+          "$RUNNER_TEMP/render.sh" "$RUNNER_TEMP/out/head" .build/vis-head
+
+      - name: Önceki commit — derle ve render et
+        id: base
+        run: |
+          git checkout -qf "${{ steps.refs.outputs.base }}"  # xcodegen pbxproj'yi değiştirmiş olabilir
+          xcodegen generate
+          xcodebuild -project ClaudeLimit.xcodeproj -scheme ClaudeLimit -configuration Debug \
+            -derivedDataPath .build/vis-base build > "$RUNNER_TEMP/base.log" 2>&1 || true
+          if [ ! -f ".build/vis-base/Build/Products/Debug/Claude Takip.app/Contents/MacOS/Claude Takip" ]; then
+            echo "::warning::Önceki commit Debug derlenemedi; karşılaştırma yapılamıyor."
+            echo "ok=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          "$RUNNER_TEMP/render.sh" "$RUNNER_TEMP/out/base" .build/vis-base
+          echo "ok=true" >> "$GITHUB_OUTPUT"
+          git checkout -qf "${{ steps.refs.outputs.head }}"
+
+      - name: Karşılaştır
+        if: steps.base.outputs.ok == 'true'
+        run: |
+          cd "$RUNNER_TEMP/out"
+          FAIL=0
+          printf '%-16s %-12s %-12s %s\n' ekran önceki bu sonuç
+          for f in battery wallet-light wallet-dark settings-light settings-dark popover-light popover-dark; do
+            a="base/$f.png"; b="head/$f.png"
+            ha=$([ -f "$a" ] && shasum -a 256 "$a" | cut -c1-10 || echo "—")
+            hb=$([ -f "$b" ] && shasum -a 256 "$b" | cut -c1-10 || echo "—")
+            if [ "$ha" = "—" ] || [ "$hb" = "—" ]; then r="render yok"; FAIL=1
+            elif [ "$ha" = "$hb" ]; then r="aynı"
+            else r="FARKLI"; FAIL=1; fi
+            printf '%-16s %-12s %-12s %s\n' "$f" "$ha" "$hb" "$r"
+          done
+          [ "$FAIL" = 0 ] || { echo "::error::ekran çıktısı değişti ya da render edilemedi"; exit 1; }
+          echo "▸ yedi ekranın hepsi bir önceki commit'le piksel piksel aynı"
+
+      - name: Render'ları yükle
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: renders
+          path: ${{ runner.temp }}/out
+          if-no-files-found: ignore
+
+  # wrangler, Worker'ı esbuild ile paketliyor ve esbuild tipleri yalnızca
+  # siliyor: tip hatası olan kod da sorunsuz yayına çıkar. Bu iş tsc'yi
+  # `noEmit` ile çalıştırıp o hataları yayından önce yakalıyor.
+  cloud:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    name: cloud (tip denetimi, protokol testleri)
+    defaults:
+      run:
+        working-directory: cloud
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22.x'
+          cache: npm
+          cache-dependency-path: cloud/package-lock.json
+
+      - name: Bağımlılıkları kur
+        run: npm ci
+
+      - name: Tip denetimi
+        run: npm run typecheck
+
+      # Worker'ın tel sözleşmesi (uçlar, durum kodları, JSON alan adları),
+      # bellek içi SQLite üzerinde. Ek bağımlılık yok: Node 22.18+ .ts
+      # dosyalarının tiplerini kendisi siliyor, node:sqlite 22.13+'da bayraksız.
+      - name: Protokol testleri
+        run: npm test
+
+      # Yalnız okur: üretim D1'inde hangi göçlerin kayıtlı olduğunu ve şemanın
+      # gerçek hâlini gösterir. Anahtar yoksa (ör. çatal PR) atlanır.
+      - name: Üretim veritabanı durumu (salt okunur)
+        if: github.event_name == 'workflow_dispatch'
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+        run: |
+          if [ -z "$CLOUDFLARE_API_TOKEN" ]; then echo "anahtar yok, atlandı"; exit 0; fi
+          npx wrangler whoami || true
+          npx wrangler d1 migrations list claudetakip --remote || true
+          npx wrangler d1 execute claudetakip --remote --json --command \
+            "SELECT type, name, sql FROM sqlite_master WHERE name NOT LIKE 'sqlite_%' AND name NOT LIKE '_cf_%' ORDER BY type, name" || true

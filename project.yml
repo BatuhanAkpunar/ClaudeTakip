@@ -1,0 +1,77 @@
+name: ClaudeLimit
+
+options:
+  bundleIdPrefix: com.batuhanakpunar
+  deploymentTarget:
+    macOS: "15.0"
+  createIntermediateGroups: true
+  groupSortPosition: top
+
+settings:
+  base:
+    SWIFT_VERSION: "6.0"
+    SWIFT_STRICT_CONCURRENCY: complete
+    MARKETING_VERSION: "0.2.3"
+    CURRENT_PROJECT_VERSION: "6"
+    DEAD_CODE_STRIPPING: YES
+
+packages:
+  LimitCore:
+    path: .
+  # Otomatik güncelleme. App Store dışı macOS uygulamalarının standart yolu:
+  # EdDSA ile imzalı bir besleme (appcast) okuyor, imzayı uygulamaya gömülü
+  # açık anahtarla doğruluyor, sonra indirip yerine koyuyor.
+  Sparkle:
+    url: https://github.com/sparkle-project/Sparkle
+    from: "2.6.0"
+
+targets:
+  ClaudeLimit:
+    type: application
+    platform: macOS
+    sources:
+      - path: App
+    dependencies:
+      - package: LimitCore
+        product: LimitCore
+      - package: Sparkle
+        product: Sparkle
+    info:
+      path: App/Info.plist
+      properties:
+        CFBundleName: Claude Takip
+        CFBundleDisplayName: Claude Takip
+        # Sürüm tek kaynaktan: release.sh project.yml'i artırır, Sparkle
+        # CFBundleVersion'ı karşılaştırır.
+        CFBundleShortVersionString: $(MARKETING_VERSION)
+        CFBundleVersion: $(CURRENT_PROJECT_VERSION)
+        LSMinimumSystemVersion: "15.0"
+        # Menü çubuğu uygulaması: Dock ikonu ve ana pencere yok.
+        LSUIElement: true
+        NSHumanReadableCopyright: ""
+        # ── Otomatik güncelleme (Sparkle) ──
+        # Besleme her yayının kendi ek dosyası: "latest" her zaman en yeni
+        # yayının appcast.xml'ine yönlenir, ayrı bir sunucu ya da dal gerekmez.
+        SUFeedURL: https://github.com/BatuhanAkpunar/ClaudeTakip/releases/latest/download/appcast.xml
+        SUPublicEDKey: kRJBeWoyWhZY2o3cbk07Zmn+eYHJBnQ0OiePTRUu9ZM=
+        # Kullanıcıya "otomatik denetlensin mi" diye sorulmuyor: açık gelir.
+        SUEnableAutomaticChecks: true
+        # Bulunan güncelleme sessizce indirilir ve kurulur.
+        SUAutomaticallyUpdate: true
+        # Saatte bir denetim (3600 sn). Besleme birkaç KB, maliyeti yok
+        # denecek kadar az; buna karşılık yayınlanan bir sürüm kullanıcıya
+        # en geç bir saat içinde ulaşıyor. Günlük denetimde (86400) bu süre
+        # 24 saate kadar çıkıyordu. Kullanıcı ayarlardan elle de tetikleyebilir.
+        SUScheduledCheckInterval: 3600
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.batuhanakpunar.claudelimit
+        PRODUCT_NAME: Claude Takip
+        # Sandbox kapalı. Sandboxed bir uygulama ~/.claude ve başka bir
+        # uygulamanın Application Support klasörünü okuyamaz.
+        ENABLE_APP_SANDBOX: NO
+        ENABLE_HARDENED_RUNTIME: NO
+        CODE_SIGN_IDENTITY: "-"
+        CODE_SIGNING_REQUIRED: NO
+        ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
+        COMBINE_HIDPI_IMAGES: YES

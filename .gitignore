@@ -1,0 +1,22 @@
+.build/
+dist/
+.swiftpm/
+node_modules/
+*.xcuserdatad/
+xcuserdata/
+.DS_Store
+*.log
+
+# Derleme ve dağıtım çıktıları
+*.dmg
+
+# Yerel araç ve çalışma klasörleri; uygulamanın parçası değil
+_to_delete/
+.agents/
+.claude/
+skills-lock.json
+
+# Cloudflare worker yerel durumu (yerel D1 kopyası dahil)
+cloud/node_modules/
+cloud/.wrangler/
+cloud/.dev.vars

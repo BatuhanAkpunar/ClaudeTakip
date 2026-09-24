@@ -1,0 +1,72 @@
+name: Bulutu güncelle
+
+# Üretim D1 göçlerini uygular ve Worker'ı yayına alır. Yalnız elle çalışır
+# ve "uygula" onayı ister; önce veritabanının tam yedeğini artifact olarak saklar.
+on:
+  workflow_dispatch:
+    inputs:
+      onay:
+        description: 'Canlı veritabanını değiştirmek için "uygula" yaz'
+        required: true
+
+concurrency:
+  group: cloud-deploy
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    if: inputs.onay == 'uygula'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    defaults:
+      run:
+        working-directory: cloud
+    env:
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22.x'
+          cache: npm
+          cache-dependency-path: cloud/package-lock.json
+
+      - name: Bağımlılıkları kur ve doğrula
+        run: |
+          npm ci
+          npm run typecheck
+          npm test
+
+      - name: Veritabanı yedeği
+        run: npx wrangler d1 export claudetakip --remote --output="$RUNNER_TEMP/yedek.sql"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: d1-yedek
+          path: ${{ runner.temp }}/yedek.sql
+          retention-days: 90
+
+      # 0002-0006 üretime elle uygulanmış ama d1_migrations'a yazılmamış.
+      # Şemada gerçekten varlarsa yalnız kayda işlenir; yoksa durulur.
+      - name: Elle uygulanmış göçleri kayda işle
+        run: |
+          cols=$(npx wrangler d1 execute claudetakip --remote --json \
+            --command "SELECT name FROM pragma_table_info('device')" )
+          for c in ip_hash account_key account_bound_at account_changes rate_window_start rate_count; do
+            echo "$cols" | grep -q "\"$c\"" || { echo "::error::device.$c yok; elle kayıt yapılmadı"; exit 1; }
+          done
+          npx wrangler d1 execute claudetakip --remote --command \
+            "INSERT OR IGNORE INTO d1_migrations(name) VALUES ('0002_ip_hash.sql'),('0003_registration_log.sql'),('0004_account_key.sql'),('0005_device_account_binding.sql'),('0006_device_rate_limit.sql')"
+
+      - name: Göçleri uygula
+        run: npx wrangler d1 migrations apply claudetakip --remote
+
+      - name: Worker'ı yayına al
+        run: npx wrangler deploy
+
+      - name: Son durum
+        run: |
+          npx wrangler d1 migrations list claudetakip --remote
+          code=$(curl -sS -o /dev/null -w "%{http_code}" https://claudetakip-sync.claudetakip-sync.workers.dev/v1/health)
+          echo "health: $code"; [ "$code" = 200 ]

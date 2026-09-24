@@ -1,0 +1,176 @@
+name: Yayın
+
+# Sürümü GitHub'da derler, imzalar ve yayınlar. Kimsenin Mac'i gerekmiyor.
+#
+# Akış:
+#   1) `project.yml`de MARKETING_VERSION + CURRENT_PROJECT_VERSION artır,
+#      commit + push (main'e).
+#   2) Bu iş akışını çalıştır. Sürümü ELLE VERMİYORSUN: `project.yml`den
+#      okunuyor, böylece iki yerde farklı sürüm yazma ihtimali yok.
+#
+# Sonuç: v<sürüm> release'i — DMG (iki adla), güncelleme ZIP'i ve appcast.xml.
+# Çalışan kopyalar beslemeyi `releases/latest/download/appcast.xml` adresinden
+# okuduğu için yayın biter bitmez güncellemeyi görürler.
+#
+# GEREKEN TEK SIR: `SPARKLE_PRIVATE_KEY` (depo ayarları → Secrets → Actions).
+# İçeriği `~/.config/claude-limit/sparkle_ed25519_private.key` dosyasının
+# tamamı. Uygulama yalnızca bu anahtarla imzalanmış arşivi kuruyor; anahtar
+# yoksa iş akışı imza adımında durur ve HİÇBİR ŞEY yayınlanmaz.
+#
+# Kod imzası ad-hoc (`codesign --sign -`), yani Apple Developer sertifikası
+# ve ek sır gerekmiyor.
+#
+# Yalnızca elle tetikleniyor. Etiket push'una da bağlanabilirdi ama
+# `gh release create --target main` var olan bir etiketle çakışıyor; tek
+# tetikleyici daha az kırılgan ve yayın zaten bilinçli bir karar.
+on:
+  workflow_dispatch:
+
+# Aynı anda iki yayın çalışmasın: ikisi de aynı etiketi oluşturmaya kalkar.
+concurrency:
+  group: release
+  cancel-in-progress: false
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: macos-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Sürümü project.yml'den oku
+        id: v
+        run: |
+          VERSION=$(sed -nE 's/^ *MARKETING_VERSION: "?([^"]+)"?$/\1/p' project.yml)
+          BUILD=$(sed -nE 's/^ *CURRENT_PROJECT_VERSION: "?([0-9]+)"?$/\1/p' project.yml)
+          [ -n "$VERSION" ] || { echo "project.yml'de MARKETING_VERSION okunamadı"; exit 1; }
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "▸ yayınlanacak: v$VERSION (derleme $BUILD)"
+
+      - name: Bu sürüm zaten yayında mı
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          if gh release view "v${{ steps.v.outputs.version }}" -R "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            echo "v${{ steps.v.outputs.version }} zaten yayında. Önce project.yml'de sürümü artır."
+            exit 1
+          fi
+
+      # Yayın CI'yı beklemiyor; testler burada yeniden koşuyor ki kırık bir
+      # commit imzalanıp kurulu kopyalara dağıtılmasın. ci.yml'deki adımla
+      # aynı denetimler: `pipefail`, başarısız test yok, "passed" ile bitiş.
+      - name: Paket testleri
+        env:
+          TZ: UTC
+        run: |
+          set -o pipefail
+          swift test 2>&1 | tee "$RUNNER_TEMP/test.log"
+          if grep -qE "Test run with [0-9]+ tests? .*failed" "$RUNNER_TEMP/test.log"; then
+            echo "::error::başarısız test var, yayın durduruldu"; exit 1
+          fi
+          grep -E "Test run with [0-9]+ tests? .*passed" "$RUNNER_TEMP/test.log" \
+            || { echo "::error::test çalıştırması 'passed' ile bitmedi, yayın durduruldu"; exit 1; }
+
+      - name: xcodegen kur
+        run: brew install xcodegen
+
+      # Anahtar runner'ın diskinde geçici bir dosyada. Runner her çalıştırmada
+      # sıfırdan kurulup atıldığı için kalıcı bir iz bırakmıyor; yine de
+      # günlüklere sızmasın diye `sign_update` çıktısı dışında hiçbir yere
+      # yazdırılmıyor.
+      - name: İmza anahtarını yerleştir
+        env:
+          SPARKLE_PRIVATE_KEY: ${{ secrets.SPARKLE_PRIVATE_KEY }}
+        run: |
+          if [ -z "$SPARKLE_PRIVATE_KEY" ]; then
+            echo "SPARKLE_PRIVATE_KEY sırrı tanımlı değil."
+            echo "Depo → Settings → Secrets and variables → Actions → New repository secret"
+            echo "Ad: SPARKLE_PRIVATE_KEY"
+            echo "Değer: ~/.config/claude-limit/sparkle_ed25519_private.key dosyasının içeriği"
+            exit 1
+          fi
+          KEYFILE="$RUNNER_TEMP/sparkle_ed25519_private.key"
+          printf '%s' "$SPARKLE_PRIVATE_KEY" > "$KEYFILE"
+          chmod 600 "$KEYFILE"
+          echo "SPARKLE_KEY_FILE=$KEYFILE" >> "$GITHUB_ENV"
+
+      # YAYINDAN ÖNCE: sırdaki anahtar, uygulamaya GÖMÜLÜ açık anahtarla
+      # eşleşiyor mu?
+      #
+      # Bu denetim olmazsa yanlış anahtar sessiz ve ağır bir hata oluyor:
+      # iş akışı sorunsuz imzalar ve yayınlar, ama kurulu her uygulama arşivi
+      # reddeder (yalnızca gömülü `SUPublicEDKey` ile doğrulananı kurar) ve
+      # hiçbir yerde hata görünmez — kullanıcılar sessizce güncelleme almayı
+      # bırakır. Yayından sonra fark etmek çok geç.
+      #
+      # `generate_keys` anahtarı 64 bayt olarak üretiyor: ilk 32 tohum, son 32
+      # AÇIK ANAHTAR. Yani karşılaştırma için imzalamaya ya da belgelenmemiş
+      # bir bayrağa gerek yok, dosyanın kendisi yetiyor.
+      - name: Anahtar gömülü açık anahtarla eşleşiyor mu
+        run: |
+          python3 - <<'PY'
+          import base64, os, re, sys
+          raw = base64.b64decode(open(os.environ["SPARKLE_KEY_FILE"], "rb").read().strip())
+          embedded = re.search(r'^ *SUPublicEDKey: (.+)$', open("project.yml").read(), re.M)
+          if not embedded:
+              sys.exit("project.yml içinde SUPublicEDKey bulunamadı")
+          embedded = embedded.group(1).strip()
+          if len(raw) == 64:
+              derived = base64.b64encode(raw[32:]).decode()
+          elif len(raw) == 32:
+              print("::warning::Anahtar 32 baytlık tohum; açık anahtar türetilemedi, denetim atlandı.")
+              sys.exit(0)
+          else:
+              sys.exit(f"Anahtar {len(raw)} bayt; 32 ya da 64 bekleniyordu.")
+          if derived != embedded:
+              sys.exit(
+                  "SPARKLE_PRIVATE_KEY sırrı uygulamaya gömülü açık anahtarla EŞLEŞMİYOR.\n"
+                  f"  gömülü  (project.yml SUPublicEDKey): {embedded}\n"
+                  f"  sırdan türetilen:                   {derived}\n"
+                  "Bu anahtarla yayınlanan güncellemeyi hiçbir kurulu kopya kuramaz."
+              )
+          print("▸ imza anahtarı gömülü açık anahtarla eşleşiyor")
+          PY
+
+      # `release.sh` derleme, sürüm doğrulama, DMG, imzalı ZIP, appcast ve
+      # `gh release create` adımlarının TAMAMINI yapıyor. İş akışı onu
+      # kopyalamıyor, çağırıyor: yayının tek bir tanımı olsun diye.
+      - name: Derle, imzala, yayınla
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: tools/release.sh "${{ steps.v.outputs.version }}" --publish --ci
+
+      # Yayın gerçekten kurulabilir mi: besleme tam da uygulamanın okuyacağı
+      # adresten çekiliyor ve içinde adı geçen ZIP indirilip imzası yeniden
+      # doğrulanıyor. Yani "yükledim" değil, "kullanıcının göreceği şey doğru"
+      # denetimi.
+      - name: Beslemeyi ve imzayı doğrula
+        run: |
+          set -euo pipefail
+          FEED="https://github.com/$GITHUB_REPOSITORY/releases/latest/download/appcast.xml"
+          curl -fsSL --retry 5 --retry-delay 3 --retry-all-errors "$FEED" -o /tmp/appcast.xml
+          cat /tmp/appcast.xml
+          grep -q "<sparkle:shortVersionString>${{ steps.v.outputs.version }}</sparkle:shortVersionString>" /tmp/appcast.xml
+          URL=$(sed -nE 's/.*enclosure url="([^"]+)".*/\1/p' /tmp/appcast.xml)
+          SIG=$(sed -nE 's/.*sparkle:edSignature="([^"]+)".*/\1/p' /tmp/appcast.xml)
+          curl -fsSL --retry 5 --retry-delay 3 --retry-all-errors "$URL" -o /tmp/update.zip
+          # İmzayı YÜKLENEN dosyaya karşı doğruluyoruz: buradaki asıl risk
+          # anahtarın yanlış olması değil (o yayından önce denetlendi), yüklemede
+          # bozulan ya da eksik giden bir arşiv.
+          SIGN_UPDATE=$(find .build/xcode-rel/SourcePackages/artifacts -path "*/Sparkle/bin/sign_update" -type f | head -1)
+          "$SIGN_UPDATE" --verify --ed-key-file "$SPARKLE_KEY_FILE" /tmp/update.zip "$SIG"
+          echo "▸ besleme yayında, indirilen arşivin imzası geçerli"
+
+      - name: Özet
+        run: |
+          {
+            echo "### Yayınlandı: v${{ steps.v.outputs.version }}"
+            echo ""
+            echo "Çalışan kopyalar beslemeyi saatte bir denetliyor ve sessizce kuruyor."
+            echo "Hemen almak için: menü çubuğu → Ayarlar → Güncellemeleri denetle."
+            echo ""
+            echo "https://github.com/$GITHUB_REPOSITORY/releases/tag/v${{ steps.v.outputs.version }}"
+          } >> "$GITHUB_STEP_SUMMARY"

@@ -1,0 +1,18 @@
+{
+  "name": "claudetakip-sync",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "wrangler dev",
+    "deploy": "wrangler deploy",
+    "schema": "wrangler d1 execute claudetakip --file=schema.sql --remote",
+    "schema:local": "wrangler d1 execute claudetakip --file=schema.sql --local",
+    "typecheck": "tsc -p .",
+    "test": "node --no-warnings --test test/protocol.test.ts 'test/*.test.mjs'"
+  },
+  "devDependencies": {
+    "@cloudflare/workers-types": "5.20260924.1",
+    "typescript": "5.9.3",
+    "wrangler": "4.137.0"
+  }
+}

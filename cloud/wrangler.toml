@@ -1,0 +1,12 @@
+name = "claudetakip-sync"
+main = "src/index.ts"
+compatibility_date = "2026-01-01"
+
+# Gözlemlenebilirlik ücretsiz katmanda da açık; hata ayıklamak için gerekli.
+[observability]
+enabled = true
+
+[[d1_databases]]
+binding = "DB"
+database_name = "claudetakip"
+database_id = "e6d77be9-f4ab-4575-8b7d-d6f3b2eee743"
