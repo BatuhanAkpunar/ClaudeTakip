@@ -195,19 +195,28 @@ public struct ClaudeWebClient: Sendable {
 
         // Tek kelimelik istem, en ucuz model: amaç cevap değil, pencerenin
         // açılması. Yanıt akış (SSE) olarak dönüyor, gövdesi okunmuyor.
-        _ = try? await request(
-            "\(base)/\(conversationID)/completion", method: "POST",
-            body: [
-                "prompt": "hi",
-                "timezone": TimeZone.current.identifier,
-                "model": Self.cheapestModel,
-            ],
-            timeout: 30,
-            accepting: 200...299
-        )
+        // Pencereyi açan bu istek; hatası yutulursa pencere açılmadığı halde
+        // "başlatıldı" sanılır. Model reddedilirse (hesapta yoksa ya da adı
+        // değiştiyse) hesabın varsayılan modeliyle bir kez daha denenir.
+        let completion = "\(base)/\(conversationID)/completion"
+        var prompt = ["prompt": "hi", "timezone": TimeZone.current.identifier]
+        var completionError: Error?
+        do {
+            prompt["model"] = Self.cheapestModel
+            _ = try await request(completion, method: "POST", body: prompt, timeout: 30, accepting: 200...299)
+        } catch {
+            prompt["model"] = nil
+            do {
+                _ = try await request(completion, method: "POST", body: prompt, timeout: 30, accepting: 200...299)
+            } catch {
+                completionError = error
+            }
+        }
 
         // Temizlik en iyi çaba: silme başarısız olsa bile pencere açıldı.
         _ = try? await request("\(base)/\(conversationID)", method: "DELETE", body: nil, accepting: 200...299)
+
+        if let completionError { throw completionError }
     }
 
     /// Pencereyi açmak için kullanılan model. En ucuz/en hızlı olan seçiliyor:

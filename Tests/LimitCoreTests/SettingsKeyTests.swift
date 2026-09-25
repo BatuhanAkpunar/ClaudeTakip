@@ -7,7 +7,7 @@ struct SettingsKeyTests {
     @Test("Anahtar dizeleri ve varsayılan sabit")
     func rawStrings() {
         #expect(SettingsKey.autoSessionEnabled == "autoSessionEnabled")
-        #expect(SettingsKey.autoSessionDefault == false)
+        #expect(SettingsKey.autoSessionDefault == true)
         #expect(SettingsKey.cloudSyncEnabled == "cloudSyncEnabled")
         #expect(SettingsKey.purgedLegacyKeychain == "purgedLegacyKeychain")
         #expect(SettingsKey.showInMenuBar == "showInMenuBar")

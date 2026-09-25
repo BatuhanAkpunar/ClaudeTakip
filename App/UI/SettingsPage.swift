@@ -51,7 +51,7 @@ struct SettingsPage: View {
                     // Bu, uygulamanın kullanıcı hesabından İÇERİK ÜRETTİĞİ tek yer:
                     // claude.ai üzerinde bir sohbet açıp en ucuz modele "hi"
                     // gönderiyor, sonra sohbeti siliyor. Geri kalan her şey salt
-                    // okuma. Varsayılan KAPALI: kullanıcı açıkça açmalı.
+                    // okuma. Varsayılan AÇIK; kullanıcı buradan kapatabilir.
                     CompactToggle(
                         L.t("5 saatlik oturumu otomatik başlat",
                             "Start the 5-hour session automatically"),

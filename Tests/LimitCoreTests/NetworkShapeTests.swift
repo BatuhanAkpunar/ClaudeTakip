@@ -180,6 +180,36 @@ struct NetworkShapeTests {
             #expect(requests.dropFirst().first?.url?.path.hasSuffix("/completion") == true)
         }
 
+        @Test("Completion model reddedilirse modelsiz bir kez daha denenir")
+        func completionModelsizTekrar() async throws {
+            // İstek, işleyiciden önce kaydediliyor: ilk completion 400, sonraki 200.
+            StubURLProtocol.reset { request in
+                guard request.url?.path.hasSuffix("/completion") == true else { return (200, [:], Data()) }
+                let seen = StubURLProtocol.requests.filter { $0.request.url?.path.hasSuffix("/completion") == true }
+                return (seen.count == 1 ? 400 : 200, [:], Data())
+            }
+            try await makeClient().startSessionWindow(organizationID: "org")
+
+            let recorded = StubURLProtocol.requests
+            #expect(recorded.map(\.request.httpMethod) == ["POST", "POST", "POST", "DELETE"])
+            let bodies = recorded.filter { $0.request.url?.path.hasSuffix("/completion") == true }
+                .map { String(decoding: $0.body ?? Data(), as: UTF8.self) }
+            #expect(bodies.count == 2)
+            #expect(bodies.first?.contains("\"model\"") == true)
+            #expect(bodies.last?.contains("\"model\"") == false)
+        }
+
+        @Test("Completion hiç geçmezse hata fırlatılır, sohbet yine silinir")
+        func completionHatasiGorunur() async throws {
+            StubURLProtocol.reset { request in
+                (request.url?.path.hasSuffix("/completion") == true ? 500 : 200, [:], Data())
+            }
+            await #expect(throws: ClaudeWebClient.ClientError.self) {
+                try await makeClient().startSessionWindow(organizationID: "org")
+            }
+            #expect(StubURLProtocol.requests.map(\.request.httpMethod).last == "DELETE")
+        }
+
         @Test("Set-Cookie ile gelen yeni sessionKey kancayı bir kez çağırır")
         func anahtarYenilenir() async throws {
             let rotated = "sk-ant-" + String(repeating: "y", count: 24)

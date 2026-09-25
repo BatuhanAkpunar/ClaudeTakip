@@ -1,7 +1,7 @@
 import Foundation
 import LimitCore
 
-/// Pencere kapandığında kendiliğinden yeni pencere açma. Varsayılan KAPALI (açık onay).
+/// Pencere kapandığında kendiliğinden yeni pencere açma. Varsayılan AÇIK.
 ///
 /// Bu, uygulamanın kullanıcı hesabından içerik ürettiği tek özellik.
 /// Kontrol TEK yerde (`startIfNeeded`), böylece "kapattım ama yine de
