@@ -167,8 +167,14 @@ final class UsageStore {
             onWake: { [weak self] in
                 guard let self else { return }
                 self.retry.clearBackoff()
+                self.starter.resetAfterWake()
                 self.refreshQuota()
-                self.refreshServer()
+                // Ölü keep-alive bağlantıları önce bırakılıyor; yoksa uyanıştaki
+                // ilk istek uyku öncesi sokete gidip düşer.
+                Task { @MainActor [weak self] in
+                    await ClaudeWebClient.dropPooledConnections()
+                    self?.refreshServer()
+                }
             },
             onFileChange: { [weak self] in self?.refreshQuota() }
         )

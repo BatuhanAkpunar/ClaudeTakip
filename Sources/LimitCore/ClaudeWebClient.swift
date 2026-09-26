@@ -68,6 +68,18 @@ public struct ClaudeWebClient: Sendable {
     /// kavanozu ve önbellek kapalı, kimlik her istekte elle konan başlıkta.
     private static let sharedSession = makeSession()
 
+    /// Havuzdaki bağlantıları bırakır; sonraki istekler yeni TCP bağlantısı açar.
+    ///
+    /// Uykudan uyanınca ÇAĞRILMALI: uykudan önce açılmış keep-alive
+    /// bağlantıları ölü ama havuzda duruyor. Paylaşılan oturumdan önce her
+    /// istek taze bağlantı açıyordu; şimdi uyanıştaki ilk istekler bu ölü
+    /// soketlere gidip düşüyor ve pencere başlatma kaçıyordu.
+    public static func dropPooledConnections() async {
+        await withCheckedContinuation { (done: CheckedContinuation<Void, Never>) in
+            sharedSession.flush { done.resume() }
+        }
+    }
+
     /// Sunucu `Set-Cookie` ile YENİ bir `sessionKey` döndürürse çağrılır.
     ///
     /// Çerez kavanozu bilinçli olarak kapalı; ama claude.ai anahtarı zaman

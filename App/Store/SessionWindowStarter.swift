@@ -39,6 +39,18 @@ final class SessionWindowStarter {
         if state == .running { state = .idle }
     }
 
+    /// Uykudan uyanma: uyku öncesi deneme sayılmaz.
+    ///
+    /// Uykuya girerken uçuşta kalan istek ölü bağlantıda asılı kalabiliyor
+    /// (`.running` hiç bitmiyor) ya da uyanıştaki ilk deneme ağ gelmeden
+    /// düşüp 10 dakikalık beklemeyi başlatıyor. İkisi de kapanmış pencerenin
+    /// uyanınca hemen yeniden açılmasını engelliyordu.
+    func resetAfterWake() {
+        cancel()
+        lastStart = nil
+        if case .failed = state { state = .idle }
+    }
+
     private var isEnabled: Bool {
         UserDefaults.standard.object(forKey: SettingsKey.autoSessionEnabled) as? Bool
             ?? SettingsKey.autoSessionDefault
