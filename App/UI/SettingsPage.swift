@@ -191,7 +191,11 @@ struct SettingsPage: View {
     }
 
     private static var appVersion: String {
-        Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "?"
+        #if DEBUG
+        // CI görsel karşılaştırması: sürüm artışı ekranı "değişmiş" göstermesin.
+        if ProcessInfo.processInfo.environment["CLAUDE_LIMIT_RENDER_SETTINGS"] != nil { return "0.0.0" }
+        #endif
+        return Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "?"
     }
 
     private var header: some View {
