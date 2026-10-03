@@ -99,16 +99,31 @@ public final class QuotaArchive {
     /// Sonuç önbellekleniyor: okuma 0,6 ms ama profil inşası 7,2 ms ve bu iş
     /// 30 saniyede bir ana iş parçacığında yapılır. Arşiv büyüdükçe
     /// doğrusal artıyor, oysa saatlik desen dakikalar içinde değişmiyor.
-    private var profileCache: (profile: UsageProfile, at: Date)?
+    ///
+    /// Önbellek saat dilimine de bağlı (eski satırların saati o anki takvimle
+    /// okunuyor) ve dışarıdan geçmiş eklendiğinde `invalidateProfile()` ile
+    /// boşaltılıyor: yoksa buluttan geri yükleme beş dakika görünmüyordu.
+    private var profileCache: (profile: UsageProfile, at: Date, zone: String)?
     private static let longRangeTTL: TimeInterval = 5 * 60
 
-    public func profile(now: Date) -> UsageProfile {
-        if let cache = profileCache, now.timeIntervalSince(cache.at) < Self.longRangeTTL {
+    public func profile(now: Date, timeZone: TimeZone = .current) -> UsageProfile {
+        if let cache = profileCache, cache.zone == timeZone.identifier,
+           now.timeIntervalSince(cache.at) < Self.longRangeTTL {
             return cache.profile
         }
-        let rows = history.map { (try? $0.samples(since: now.addingTimeInterval(-Self.profileSpan))) ?? [] } ?? []
-        let built = UsageProfile.build(from: rows)
-        profileCache = (built, now)
+        var calendar = Calendar.current
+        calendar.timeZone = timeZone
+        let rows = history.flatMap { try? $0.samplesWithOffsets(since: now.addingTimeInterval(-Self.profileSpan)) }
+        let built = rows.map {
+            UsageProfile.build(from: $0.samples, utcOffsets: $0.utcOffsets, calendar: calendar, now: now)
+        } ?? .empty
+        profileCache = (built, now, timeZone.identifier)
         return built
+    }
+
+    /// Profil önbelleğini boşaltır: arşive bu sınıfın dışından (bulut geri
+    /// yüklemesi) satır eklendiğinde çağrılır.
+    public func invalidateProfile() {
+        profileCache = nil
     }
 }

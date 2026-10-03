@@ -102,6 +102,8 @@ struct PersistedFormatTests {
         #expect(sample.fiveHour == 10)
         #expect(sample.sevenDay == 20)
         #expect(sample.extraUsage == nil)
+        // Eski şemaya `utc_offset` sütunu eklenir; eski satırda değer yok.
+        #expect(try HistoryStore(url: readURL).samplesWithOffsets(since: .distantPast).utcOffsets == [nil])
 
         // Yazma: içe aktarılan örnek aynı tamsayıyla diske iner.
         let writeURL = Self.temporaryURL("sqlite")

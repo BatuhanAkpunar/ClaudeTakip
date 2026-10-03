@@ -9,11 +9,9 @@ import LimitCore
 /// Sabit boylu şeritte göz "günün hangi bandı sıcak" sorusunu tek bakışta
 /// cevaplıyor.
 struct HourStream: View {
-    /// Saatlik profil: `hourly` saat başına ortalama kota tüketimi
-    /// (yüzde/gün), `hourSampleDays` her saatin kaç ayrı günde gözlendiği.
-    /// Kapsamı düşük saatler zayıf kanıt: uygulama o saatlerde çoğu gün
-    /// kapalı (Mac uykuda) ve payda yine tüm günler olduğu için değer
-    /// olduğundan düşük çıkıyor. Sayı gizlenmiyor, ipucunda söyleniyor.
+    /// Saatlik profil: `hourly` saat başına aktiflik payı (0-1), yani o
+    /// saatin gözlendiği günlerin kaçında kota harcandı. Payda gözlenen gün:
+    /// Mac'in uyuduğu saatler "boş" değil "ölçülmedi" sayılıyor.
     let profile: UsageProfile
 
     private var hourly: [Double] { profile.hourly }
@@ -24,21 +22,16 @@ struct HourStream: View {
         profile.peakHour.map { String(format: "%02d:00", $0) }
     }
 
-    /// İpucu metni: tepe saat, profilin kaç güne dayandığı ve o saatin kaç
-    /// günde gözlendiği. Kapsama düşükse sayı olduğundan düşüktür; bunu
-    /// saklamak yerine söylüyoruz.
+    /// İpucu metni: tepe saat, o saatin günlerin yüzde kaçında aktif olduğu
+    /// ve profilin kaç güne dayandığı.
     private var summary: String {
         guard let peakHour = profile.peakHour, let peakLabel else {
             return L.t("Henüz yeterli veri yok", "Not enough data yet")
         }
-        let observedDays = profile.observedDays
-        let sampleDays = profile.hourSampleDays
-        let base = L.t("En yoğun saat \(peakLabel) · \(observedDays) günlük profil",
-                       "Peak hour \(peakLabel) · profile from \(observedDays) days")
-        guard peakHour < sampleDays.count, observedDays > 0 else { return base }
-        let covered = sampleDays[peakHour]
-        return base + L.t(" · bu saat \(covered) günde gözlendi",
-                          " · this hour observed on \(covered) days")
+        let share = Int((profile.hourly[peakHour] * 100).rounded())
+        let days = profile.observedDays
+        return L.t("En aktif saat \(peakLabel) · günlerin %\(share)'inde · \(days) günlük profil",
+                   "Most active hour \(peakLabel) · \(share)% of days · profile from \(days) days")
     }
 
     // Dikey bütçe puntodan TÜRETİLİYOR. Elle yazılan sabitler punto değişince

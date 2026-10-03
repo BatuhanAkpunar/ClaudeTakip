@@ -10,6 +10,8 @@ import LimitCore
 /// Claude Code veya Desktop kullananlarda.
 struct ActiveHoursContent: View {
     let profile: UsageProfile
+    /// Ayrıntı sayfasını açar (hafta günü × saat ve saatlik tablo).
+    var onShowDetail: () -> Void = {}
 
     var body: some View {
         // Başlık tabanı y984, tepe etiketinin büyük harf üstü y996: aradaki
@@ -19,7 +21,13 @@ struct ActiveHoursContent: View {
             // Sağ üstte "Az … Çok" ölçeği YOK: skalanın yönü zaten şeridin
             // kendisinden okunuyor (soldan sağa günün akışı, koyulaşan renk
             // yoğunluk); başlığın karşısında ikinci bir okuma katmanı açar.
-            CardHeader(title: L.t("En Aktif Saatler", "Most Active Hours"))
+            CardHeader(title: L.t("En Aktif Saatler", "Most Active Hours")) {
+                // Ayrıntı yalnızca desen varken: "desen birikiyor" durumunda
+                // açılacak bir şey yok.
+                if profile.isReliable {
+                    DetailLink(action: onShowDetail)
+                }
+            }
 
             // `isReliable` (en az 3 gün): tek bir günün verisiyle çizilen
             // harita desen değil gürültü gösteriyor, üstelik kesin bir dille.
@@ -42,5 +50,26 @@ struct ActiveHoursContent: View {
                 .frame(height: HourStream.height)
             }
         }
+    }
+}
+
+/// Kart başlığının sağındaki "Ayrıntılar ›" bağlantısı.
+private struct DetailLink: View {
+    let action: () -> Void
+    @State private var hovering = false
+
+    var body: some View {
+        Button(action: action) {
+            HStack(spacing: 2) {
+                Text(L.t("Ayrıntılar", "Details"))
+                Image(systemName: "chevron.right")
+            }
+            .font(Typo.badge)
+            .foregroundStyle(hovering ? Palette.primaryText : Palette.secondaryText)
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .onHover { hovering = $0 }
+        .help(L.t("Hafta günü ve saat saat ayrıntı", "Breakdown by weekday and hour"))
     }
 }

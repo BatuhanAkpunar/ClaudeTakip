@@ -34,6 +34,18 @@ struct HistoryStoreTests {
         #expect(read.first?.fiveHour == 10)
     }
 
+    @Test("Örneğin kaydedildiği andaki yerel saat farkı saklanır")
+    func storesUtcOffset() throws {
+        let (store, url) = try makeStore()
+        defer { try? FileManager.default.removeItem(at: url) }
+        let istanbul = try #require(TimeZone(identifier: "Europe/Istanbul"))
+        _ = try store.importSamples([sample(0, fh: 1, sd: 1)], timeZone: istanbul)
+
+        let rows = try store.samplesWithOffsets(since: Date(timeIntervalSince1970: 0))
+        #expect(rows.samples.count == 1)
+        #expect(rows.utcOffsets == [istanbul.secondsFromGMT(for: rows.samples[0].date)])
+    }
+
     @Test("Aynı örnek iki kez yazılmaz")
     func importIsIdempotent() throws {
         let (store, url) = try makeStore()

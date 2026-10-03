@@ -180,7 +180,12 @@ final class UsageStore {
         )
         scheduler?.start()
         cloudBackup.planLabel = { [weak self] in self?.account?.planLabel }
-        cloudBackup.onRestored = { [weak self] in self?.refreshQuota() }
+        // Geri yükleme arşive doğrudan yazıyor; profil önbelleği bunu
+        // görmezse "En aktif saatler" beş dakika eski kalıyor.
+        cloudBackup.onRestored = { [weak self] in
+            self?.archive.invalidateProfile()
+            self?.refreshQuota()
+        }
         cloudBackup.sync()
     }
 

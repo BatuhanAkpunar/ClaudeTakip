@@ -14,6 +14,9 @@ struct PopoverRootView: View {
     /// Genişlik sabit olduğu için geçişte popover yatayda oynamıyor.
     @State private var showingSettings = false
 
+    /// "En aktif saatler"in ayrıntı sayfası; ayarlarla aynı kalıp.
+    @State private var showingHours = false
+
     /// Hangi limit gösteriliyor. İki kartı alt alta dizmek popover'ı
     /// uzatır ve ikisi aynı anda nadiren gerekiyor; sekme, yüksekliği
     /// yarıya indirip odağı tek pencereye veriyor.
@@ -29,6 +32,11 @@ struct PopoverRootView: View {
             if showingSettings {
                 SettingsPage(store: store) {
                     withAnimation(reduceMotion ? nil : Motion.layout) { showingSettings = false }
+                }
+                .transition(.opacity)
+            } else if showingHours {
+                ActiveHoursPage(profile: store.profile) {
+                    withAnimation(reduceMotion ? nil : Motion.layout) { showingHours = false }
                 }
                 .transition(.opacity)
             } else {
@@ -94,7 +102,9 @@ struct PopoverRootView: View {
                 // yani günün akışı soldan sağa, okuma yönünde.
                 MetricCard(topPadding: PopoverLayout.hoursCardTopPadding,
                            bottomPadding: PopoverLayout.hoursCardBottomPadding) {
-                    ActiveHoursContent(profile: store.profile)
+                    ActiveHoursContent(profile: store.profile) {
+                        withAnimation(reduceMotion ? nil : Motion.layout) { showingHours = true }
+                    }
                 }
             }
         }

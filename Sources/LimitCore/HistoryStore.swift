@@ -59,11 +59,17 @@ public final class HistoryStore: @unchecked Sendable {
         // yapıyor. Eski sürümlerin kurduğu ayrı indeks aynı şeyin kopyasıydı:
         // her yazmada iki kez güncelleniyor, diskte yer kaplıyordu.
         try run("DROP INDEX IF EXISTS quota_sample_t;")
+        // Örneğin kaydedildiği andaki yerel saat farkı (saniye). Kullanım
+        // profili saati buradan okuyor: saat dilimi değişince geçmişin
+        // tamamı yeni farkla yeniden kovalanıp kaymasın. Eski satırlarda
+        // NULL; profil onlarda o anki takvime düşüyor. Sütun zaten varsa
+        // ALTER hata verir, bu beklenen durum.
+        try? run("ALTER TABLE quota_sample ADD COLUMN utc_offset INTEGER;")
     }
 
     /// Yeni örnekleri arşive ekler, zaten olanları atlar. Eklenen sayıyı döner.
     @discardableResult
-    public func importSamples(_ samples: [QuotaSample]) throws -> Int {
+    public func importSamples(_ samples: [QuotaSample], timeZone: TimeZone = .current) throws -> Int {
         guard !samples.isEmpty else { return 0 }
         return try lock.withLock {
             try run("BEGIN TRANSACTION;")
@@ -74,8 +80,8 @@ public final class HistoryStore: @unchecked Sendable {
 
             var statement: OpaquePointer?
             let sql = """
-                INSERT OR IGNORE INTO quota_sample (t, org, five_hour, seven_day, extra)
-                VALUES (?, ?, ?, ?, ?);
+                INSERT OR IGNORE INTO quota_sample (t, org, five_hour, seven_day, extra, utc_offset)
+                VALUES (?, ?, ?, ?, ?, ?);
                 """
             guard sqlite3_prepare_v2(db, sql, -1, &statement, nil) == SQLITE_OK else {
                 throw StoreError.query(lastError)
@@ -96,6 +102,7 @@ public final class HistoryStore: @unchecked Sendable {
                 } else {
                     sqlite3_bind_null(statement, 5)
                 }
+                sqlite3_bind_int(statement, 6, Int32(timeZone.secondsFromGMT(for: sample.date)))
                 if sqlite3_step(statement) == SQLITE_DONE {
                     inserted += Int(sqlite3_changes(db))
                 }
@@ -132,6 +139,41 @@ public final class HistoryStore: @unchecked Sendable {
                 ))
             }
             return result
+        }
+    }
+
+    /// Örnekler ve her birinin kaydedildiği andaki yerel saat farkı
+    /// (eski satırlarda nil). Yalnızca kullanım profili için.
+    public func samplesWithOffsets(since: Date) throws -> (samples: [QuotaSample], utcOffsets: [Int?]) {
+        return try lock.withLock {
+            var statement: OpaquePointer?
+            let sql = """
+                SELECT t, org, five_hour, seven_day, extra, utc_offset FROM quota_sample
+                WHERE t >= ? ORDER BY t ASC;
+                """
+            guard sqlite3_prepare_v2(db, sql, -1, &statement, nil) == SQLITE_OK else {
+                throw StoreError.query(lastError)
+            }
+            defer { sqlite3_finalize(statement) }
+            sqlite3_bind_int64(statement, 1, since.epochMilliseconds)
+
+            var samples: [QuotaSample] = []
+            var offsets: [Int?] = []
+            while sqlite3_step(statement) == SQLITE_ROW {
+                samples.append(QuotaSample(
+                    date: Date(epochMilliseconds: Double(sqlite3_column_int64(statement, 0))),
+                    org: String(cString: sqlite3_column_text(statement, 1)),
+                    fiveHour: Int(sqlite3_column_int(statement, 2)),
+                    sevenDay: Int(sqlite3_column_int(statement, 3)),
+                    extraUsage: sqlite3_column_type(statement, 4) == SQLITE_NULL
+                        ? nil
+                        : Int(sqlite3_column_int(statement, 4))
+                ))
+                offsets.append(sqlite3_column_type(statement, 5) == SQLITE_NULL
+                    ? nil
+                    : Int(sqlite3_column_int(statement, 5)))
+            }
+            return (samples, offsets)
         }
     }
 

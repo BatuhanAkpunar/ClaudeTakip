@@ -1,6 +1,6 @@
 import Foundation
 
-/// Kullanıcının kota tüketim alışkanlığı.
+/// Kullanıcının kota tüketim alışkanlığı: günün hangi saatlerinde çalışıyor.
 ///
 /// Kaynak token sayıları değil, kota yüzdesinin kendisi. Sebebi iki tane:
 ///
@@ -9,24 +9,58 @@ import Foundation
 ///    değil kota.
 /// 2. Token verisi yalnızca Claude Code veya Desktop kullananlarda var.
 ///    Kota yüzdesi herkeste var, tarayıcıdan kullananlarda bile.
+///
+/// ANA ÖLÇÜ SIKLIK, büyüklük değil: "bu saat, Mac'in açık olduğu günlerin
+/// kaçında kota harcadı". Büyüklüğe dayalı bir ortalamada tek bir yoğun gece
+/// her gün çalışılan saati geçebiliyordu; sıklık "genelde ne zaman
+/// çalışırım" sorusunun kendisi. Büyüklük (`intensity`) ayrıntı tablosunda
+/// ikinci bilgi olarak duruyor.
 public struct UsageProfile: Sendable, Equatable {
-    /// Saat başına ortalama kota tüketimi, yüzde/gün. 0-23.
+    /// Saat başına aktiflik payı, 0-1: o saatin gözlendiği günlerin (yakın
+    /// günler ağır basacak şekilde ağırlıklı) kaçında tüketim oldu. 0-23.
     public let hourly: [Double]
+    /// Saat başına, tüketim olan günlerde ortalama tüketim (yüzde puanı).
+    public let intensity: [Double]
     /// Her saat kaç ayrı günde gözlemlendi. Az gözlemli saatler zayıf kanıt.
     public let hourSampleDays: [Int]
     /// Profilin dayandığı toplam gün sayısı.
     public let observedDays: Int
+    /// Hafta günü × saat aktiflik payı (7 × 24). Satır 0 Pazartesi.
+    public let weekdayHourly: [[Double]]
+    /// Hafta günü × saat gözlenen gün sayısı (7 × 24).
+    public let weekdaySampleDays: [[Int]]
 
+    public init(
+        hourly: [Double],
+        intensity: [Double]? = nil,
+        hourSampleDays: [Int],
+        observedDays: Int,
+        weekdayHourly: [[Double]]? = nil,
+        weekdaySampleDays: [[Int]]? = nil
+    ) {
+        self.hourly = hourly
+        self.intensity = intensity ?? Array(repeating: 0, count: 24)
+        self.hourSampleDays = hourSampleDays
+        self.observedDays = observedDays
+        self.weekdayHourly = weekdayHourly ?? Self.emptyGrid(0.0)
+        self.weekdaySampleDays = weekdaySampleDays ?? Self.emptyGrid(0)
+    }
+
+    /// En aktif saat. Eşitlikte tüketimi büyük olan saat kazanır; o da
+    /// eşitse erken saat.
     public var peakHour: Int? {
         guard let maximum = hourly.max(), maximum > 0 else { return nil }
-        return hourly.firstIndex(of: maximum)
+        return (0..<24)
+            .filter { hourly[$0] == maximum }
+            .max { intensity[$0] < intensity[$1] || (intensity[$0] == intensity[$1] && $0 > $1) }
     }
 
     /// Profil güvenilir sayılacak kadar gözlem var mı.
     ///
-    /// Üç günün altında saatlik desen gürültüden ibaret oluyor: tek bir yoğun
-    /// gece bütün profili o saate kaydırıyor.
-    public var isReliable: Bool { observedDays >= 3 }
+    /// Üç günün altında saatlik desen gürültüden ibaret oluyor.
+    public var isReliable: Bool { observedDays >= Self.minimumDays }
+
+    public static let minimumDays = 3
 
     public static let empty = UsageProfile(
         hourly: Array(repeating: 0, count: 24),
@@ -34,72 +68,197 @@ public struct UsageProfile: Sendable, Equatable {
         observedDays: 0
     )
 
+    // MARK: - Ayarlar
+
+    /// İki örnek arası bundan uzunsa aralık atlanır: uygulama kapalıydı ya da
+    /// Mac uyuyordu; artışın aralığın neresinde olduğu bilinemez.
+    static let maxGap: TimeInterval = 3600
+    /// Yakın günler ağır basıyor: alışkanlık kayıyor, iki ay önceki düzen
+    /// dünküyle eşit sayılmamalı. Yarı ömür 21 gün.
+    static let halfLifeDays: Double = 21
+    /// Payın paydası en az bu kadar (ağırlıklı) gün. Tek bir gece görülen
+    /// bir saat 1/1 = %100 pay almasın: bir kez görülen saat en fazla 1/3.
+    static let minimumHourDays: Double = 3
+    /// Hafta günü hücreleri yedide bir veriyle çalışıyor; eşik daha düşük.
+    static let minimumCellDays: Double = 2
+
+    // MARK: - İnşa
+
     /// Kota örneklerinden profil çıkarır.
     ///
-    /// Tüketim, 5 saatlik pencere yüzdesinin pozitif artışlarından okunuyor.
-    /// Haftalık pencere de aynı bilgiyi taşıyor ama çözünürlüğü kaba: haftalık
-    /// bütçe çok daha büyük olduğu için bir saatlik çalışma çoğu zaman yüzdeyi
-    /// hiç oynatmıyor.
+    /// - Parameters:
+    ///   - samples: Zamana göre artan sıralı örnekler.
+    ///   - utcOffsets: Varsa her örneğin KAYDEDİLDİĞİ andaki yerel saat farkı
+    ///     (saniye). Saat ve gün buradan okunur; böylece başka bir saat
+    ///     dilimine geçmek geçmişin tamamını kaydırmıyor. Yoksa `calendar`.
+    ///   - now: Yakınlık ağırlığının referansı. Varsayılan en yeni örnek.
     public static func build(
         from samples: [QuotaSample],
-        calendar: Calendar = .current
+        utcOffsets: [Int?] = [],
+        calendar: Calendar = .current,
+        now: Date? = nil
     ) -> UsageProfile {
         guard samples.count > 1 else { return .empty }
+        let reference = now ?? samples[samples.count - 1].date
 
-        var hourlyTotal = [Double](repeating: 0, count: 24)
-        // KAPSAM: o saatin gözlendiği günler. Tüketim olsun olmasın
-        // sayılıyor. Paydalar için aşağıya bakın.
-        var hourCoverage: [Set<DateComponents>] = Array(repeating: [], count: 24)
-        var allDays: Set<DateComponents> = []
-
-        for (previous, current) in zip(samples, samples.dropFirst()) {
-            // Uzun boşluk gerçek çalışma değil, uygulamanın kapalı olduğu zaman.
-            // O aralığa düşen artışı tek bir saate yazmak profili bozardı.
-            let gap = current.date.timeIntervalSince(previous.date)
-            guard gap > 0, gap <= 3600 else { continue }
-
-            let day = calendar.dateComponents([.year, .month, .day], from: current.date)
-            let hour = calendar.component(.hour, from: current.date)
-
-            // Kapsam önce yazılıyor: sessiz geçen bir saat de gözlenmiştir ve
-            // ortalamayı aşağı çekmelidir.
-            hourCoverage[hour].insert(day)
-            allDays.insert(day)
-
-            let delta = Double(current.fiveHour - previous.fiveHour)
-            // Negatif fark sıfırlanma, sıfır fark duruş.
-            guard delta > 0 else { continue }
-
-            hourlyTotal[hour] += delta
+        func offset(_ index: Int) -> Int {
+            if index < utcOffsets.count, let value = utcOffsets[index] { return value }
+            return calendar.timeZone.secondsFromGMT(for: samples[index].date)
         }
 
-        // PAYDA, bilinçli:
-        //
-        // Saatlik profil profildeki TOPLAM güne bölünüyor, "o saatin gözlendiği
-        // gün"e değil: her gün 24 saatin hepsini kapsayabilir; gözlenmemiş bir
-        // saat "o gün o saatte kullanım olmadı" demek (uygulama giriş öğesi
-        // olarak sürekli açık, Mac uykudaysa kullanım da yok). Tüketimin
-        // OLDUĞU güne bölmek koşullu bir ortalama (E[X | X > 0]) verir ve nadir
-        // ama yoğun bir saati sık ama ılımlı bir saatten yüksek gösterir.
-        // Örnek: kullanıcı 20 gün boyunca her öğleden sonra 14:00'te çalışıp
-        // bir tek gece 03:00'te patlarsa, saate özel paydayla 03:00 ortalaması
-        // 40, 14:00 ortalaması 20 çıkar ve kadran "en yoğun saatin 03:00" der.
-        // Sorulan soru ise "rastgele bir günde bu saatte ne kadar harcarım":
-        // 03:00 için 40/20 = 2, 14:00 için 400/20 = 20. Tek bir gece görülen
-        // değeri her güne yaymak, hiç görmediğini sıfır saymaktan çok daha
-        // büyük bir hata üretir.
-        //
-        // Saatlik paydanın bilinen sınırı: başka bir cihazdan ya da
-        // tarayıcıdan kullanılan kota bu makinede hiç görülmüyor ve o saat
-        // olduğundan soğuk çıkıyor. Kapsama `hourSampleDays` ile taşınıyor,
-        // arayüz ipucunda gösteriliyor.
-        let days = Double(max(1, allDays.count))
-        let hourly = (0..<24).map { hourlyTotal[$0] / days }
+        var collector = Collector(reference: reference)
+
+        // Her org KENDİ zincirinde: iki ayrı 5 saatlik pencere arasındaki
+        // fark tüketim değil. Aynı hesabın iki kaynağı (Desktop dosyası ve
+        // sunucu okuması) farklı etiketle gelebiliyor; o yüzden fark çiftleri
+        // atılmıyor, her seri kendi içinde okunup aşağıda birleştiriliyor.
+        var previousByOrg: [String: Int] = [:]
+        for index in samples.indices {
+            let current = samples[index]
+            defer { previousByOrg[current.org] = index }
+            guard let previousIndex = previousByOrg[current.org] else { continue }
+            let previous = samples[previousIndex]
+
+            let gap = current.date.timeIntervalSince(previous.date)
+            guard gap > 0, gap <= maxGap else { continue }
+
+            collector.add(
+                from: previous.date,
+                to: current.date,
+                offset: offset(previousIndex),
+                // Negatif fark sıfırlanma, sıfır fark duruş.
+                delta: Double(max(0, current.fiveHour - previous.fiveHour)),
+                org: current.org
+            )
+        }
+        return collector.profile()
+    }
+
+    static func emptyGrid<T>(_ value: T) -> [[T]] {
+        Array(repeating: Array(repeating: value, count: 24), count: 7)
+    }
+}
+
+// MARK: - Toplama
+
+private struct Collector {
+    /// Yerel gün (1970'ten beri gün sayısı) + saat.
+    struct Slot: Hashable {
+        let day: Int
+        let hour: Int
+    }
+
+    let reference: Date
+    /// Gözlenen (gün, saat) çiftleri ve günlerin ağırlığı / hafta günü.
+    private var covered: Set<Slot> = []
+    private var dayWeight: [Int: Double] = [:]
+    private var dayWeekday: [Int: Int] = [:]
+    /// Org başına (gün, saat) tüketimi. Birleştirmede org'lar arası en
+    /// büyüğü alınıyor: aynı hesabın iki kaynağı aynı tüketimi iki kez
+    /// görüyor, toplamak onu ikiye katlardı.
+    private var consumption: [String: [Slot: Double]] = [:]
+    /// Tüketim olan (gün, saat) çiftleri.
+    private var active: Set<Slot> = []
+
+    init(reference: Date) {
+        self.reference = reference
+    }
+
+    mutating func add(from start: Date, to end: Date, offset: Int, delta: Double, org: String) {
+        let shift = TimeInterval(offset)
+
+        // Kapsam: aralığın değdiği HER yerel saat gözlenmiştir; tüketim
+        // olmasa da o saatin paydasına girer.
+        var cursor = start
+        while cursor < end {
+            let local = cursor.timeIntervalSince1970 + shift
+            let nextBoundary = (local / 3600).rounded(.down) * 3600 + 3600
+            covered.insert(register(cursor, shift: shift))
+            cursor = min(end, Date(timeIntervalSince1970: nextBoundary - shift))
+        }
+
+        // Tüketim tek saate yazılıyor: aralığın ORTA noktasının saati.
+        // Eskiden bitiş örneğinin saatine yazılıyordu ve 13:55-14:00
+        // arasındaki iş 14:00'e gidiyordu. Saat sınırında orantılı bölmek de
+        // komşu saate kırıntı bırakıp onu "aktif" sayardı; pay bir evet/hayır.
+        guard delta > 0 else { return }
+        let middle = register(start.addingTimeInterval(end.timeIntervalSince(start) / 2), shift: shift)
+        active.insert(middle)
+        consumption[org, default: [:]][middle, default: 0] += delta
+    }
+
+    /// Anın yerel (gün, saat) anahtarı; günü ilk kez görüyorsa ağırlığını
+    /// ve hafta gününü kaydeder.
+    ///
+    /// Takvim yok, aritmetik: saat farkı uygulanmış epoch saniyesi UTC gibi
+    /// okunuyor ve UTC'de yaz saati yok. 60 günlük arşivde on binlerce
+    /// aralık var; her biri için `Calendar` çağırmak ana iş parçacığında
+    /// ölçülür bir maliyetti.
+    private mutating func register(_ date: Date, shift: TimeInterval) -> Slot {
+        let local = date.timeIntervalSince1970 + shift
+        let day = Int((local / 86_400).rounded(.down))
+        let hour = Int(((local - Double(day) * 86_400) / 3600).rounded(.down))
+        if dayWeight[day] == nil {
+            let age = max(0, reference.timeIntervalSince(date)) / 86_400
+            dayWeight[day] = pow(0.5, age / UsageProfile.halfLifeDays)
+            // 1 Ocak 1970 Perşembe; satır 0 Pazartesi.
+            dayWeekday[day] = ((day + 3) % 7 + 7) % 7
+        }
+        return Slot(day: day, hour: min(max(hour, 0), 23))
+    }
+
+    func profile() -> UsageProfile {
+        guard !covered.isEmpty else { return .empty }
+
+        var merged: [Slot: Double] = [:]
+        for perOrg in consumption.values {
+            for (slot, value) in perOrg { merged[slot] = max(merged[slot] ?? 0, value) }
+        }
+
+        var coveredWeight = [Double](repeating: 0, count: 24)
+        var activeWeight = [Double](repeating: 0, count: 24)
+        var spentWeighted = [Double](repeating: 0, count: 24)
+        var coveredDays = [Int](repeating: 0, count: 24)
+        var cellCovered = UsageProfile.emptyGrid(0.0)
+        var cellActive = UsageProfile.emptyGrid(0.0)
+        var cellDays = UsageProfile.emptyGrid(0)
+
+        for slot in covered {
+            let weight = dayWeight[slot.day] ?? 0
+            let weekday = dayWeekday[slot.day] ?? 0
+            coveredWeight[slot.hour] += weight
+            coveredDays[slot.hour] += 1
+            cellCovered[weekday][slot.hour] += weight
+            cellDays[weekday][slot.hour] += 1
+        }
+        // Aktif ama kapsanmamış bir anahtar olamaz: orta nokta aralığın
+        // içinde ve aralığın her parçası kapsanıyor.
+        for slot in active {
+            let weight = dayWeight[slot.day] ?? 0
+            activeWeight[slot.hour] += weight
+            cellActive[dayWeekday[slot.day] ?? 0][slot.hour] += weight
+            spentWeighted[slot.hour] += weight * (merged[slot] ?? 0)
+        }
+
+        let hourly = (0..<24).map {
+            activeWeight[$0] / max(coveredWeight[$0], UsageProfile.minimumHourDays)
+        }
+        let intensity = (0..<24).map {
+            activeWeight[$0] > 0 ? spentWeighted[$0] / activeWeight[$0] : 0
+        }
+        let grid = (0..<7).map { weekday in
+            (0..<24).map { hour in
+                cellActive[weekday][hour] / max(cellCovered[weekday][hour], UsageProfile.minimumCellDays)
+            }
+        }
 
         return UsageProfile(
             hourly: hourly,
-            hourSampleDays: (0..<24).map { hourCoverage[$0].count },
-            observedDays: allDays.count
+            intensity: intensity,
+            hourSampleDays: coveredDays,
+            observedDays: Set(covered.map(\.day)).count,
+            weekdayHourly: grid,
+            weekdaySampleDays: cellDays
         )
     }
 }

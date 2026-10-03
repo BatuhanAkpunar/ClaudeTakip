@@ -114,6 +114,41 @@ struct QuotaArchiveTests {
         #expect(archive.profile(now: now.addingTimeInterval(6 * 60)) != .empty)
     }
 
+    @Test("Dışarıdan eklenen geçmiş önbelleği boşaltınca hemen görünür")
+    func profileInvalidates() throws {
+        let (store, url) = try makeStore()
+        defer { try? FileManager.default.removeItem(at: url) }
+        let archive = QuotaArchive(history: store)
+        let now = Date()
+        #expect(archive.profile(now: now) == .empty)
+
+        // Bulut geri yüklemesi arşive doğrudan yazıyor.
+        _ = try store.importSamples((0..<12).map { i in
+            QuotaSample(date: now.addingTimeInterval(Double(i - 12) * 300), org: "test",
+                        fiveHour: i * 3, sevenDay: i, extraUsage: nil)
+        })
+        #expect(archive.profile(now: now.addingTimeInterval(60)) == .empty)
+        archive.invalidateProfile()
+        #expect(archive.profile(now: now.addingTimeInterval(60)) != .empty)
+    }
+
+    @Test("Saat dilimi değişince profil önbellekten dönmez")
+    func profileCacheKeyedByTimeZone() throws {
+        let (store, url) = try makeStore()
+        defer { try? FileManager.default.removeItem(at: url) }
+        let archive = QuotaArchive(history: store)
+        let now = Date()
+        let istanbul = try #require(TimeZone(identifier: "Europe/Istanbul"))
+        let tokyo = try #require(TimeZone(identifier: "Asia/Tokyo"))
+        #expect(archive.profile(now: now, timeZone: istanbul) == .empty)
+
+        _ = try store.importSamples([
+            QuotaSample(date: now.addingTimeInterval(-600), org: "test", fiveHour: 0, sevenDay: 0, extraUsage: nil),
+            QuotaSample(date: now.addingTimeInterval(-300), org: "test", fiveHour: 5, sevenDay: 0, extraUsage: nil),
+        ])
+        #expect(archive.profile(now: now, timeZone: tokyo) != .empty)
+    }
+
     @Test("Saklama süresi okunan en uzun dilimi kapsar, eski satırlar budanır")
     func pruneKeepsRetention() throws {
         #expect(QuotaArchive.retention >= QuotaArchive.profileSpan)
