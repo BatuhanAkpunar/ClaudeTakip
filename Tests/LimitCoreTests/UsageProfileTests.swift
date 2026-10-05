@@ -188,3 +188,64 @@ struct UsageProfileTests {
         #expect(profile.peakHour == 21)
     }
 }
+
+@Suite("Aktivite doğruluk regresyonları")
+struct ActivityRegressionTests {
+    let start = Date(timeIntervalSince1970: 1_786_320_000) // 2026-08-10 00:00 UTC (Monday)
+    func sample(_ minutes: Int, _ five: Int, _ seven: Int = 0) -> QuotaSample {
+        QuotaSample(date: start.addingTimeInterval(Double(minutes) * 60), org: "a",
+                    fiveHour: five, sevenDay: seven, extraUsage: nil)
+    }
+    var calendar: Calendar {
+        var c = Calendar(identifier: .gregorian)
+        c.timeZone = TimeZone(secondsFromGMT: 0)!
+        return c
+    }
+
+    @Test("Geriye düşüp aynı değere gelen okuma hayalet aktivite üretmez")
+    func staleReadRecovery() {
+        let p = UsageProfile.build(from: [sample(0, 40), sample(5, 39), sample(10, 40)], calendar: calendar)
+        #expect(p.peakHour == nil)
+        #expect(p.intensity.allSatisfy { $0 == 0 })
+        let real = UsageProfile.build(from: [sample(0, 40), sample(5, 39), sample(10, 42)], calendar: calendar)
+        #expect(abs(real.intensity.reduce(0, +) - 2) < 1e-9)
+    }
+
+    @Test("Sıfırlanma sonrası tüketim yeni tabandan sayılır")
+    func resetStartsNewBaseline() {
+        let p = UsageProfile.build(from: [sample(0, 90), sample(5, 0), sample(10, 5)], calendar: calendar)
+        #expect(abs(p.intensity.reduce(0, +) - 5) < 1e-9)
+    }
+
+    @Test("5 saatlik sıfırlanmada haftalık artış aktiviteyi kurtarır")
+    func weeklyIncreaseProvesActivity() {
+        let p = UsageProfile.build(from: [sample(0, 90, 20), sample(5, 5, 21)], calendar: calendar)
+        #expect(p.peakHour != nil)
+        // Eski 90 ile yeni 5 arasındaki tüketim bilinemez; uydurulmaz.
+        #expect(p.intensity.allSatisfy { $0 == 0 })
+        #expect(p.forecastHourly.reduce(0, +) > 0)
+    }
+
+    @Test("Her hafta günü UTC farkı uygulandıktan sonra doğru satıra girer")
+    func allWeekdaysAndMidnight() {
+        for day in 0..<7 {
+            let a = sample(day * 1440 + 22 * 60, 0)
+            let b = sample(day * 1440 + 22 * 60 + 30, 5)
+            let p = UsageProfile.build(from: [a, b], utcOffsets: [10800, 10800], calendar: calendar)
+            let localDate = a.date.addingTimeInterval(10800)
+            let weekday = (calendar.component(.weekday, from: localDate) + 5) % 7
+            #expect(p.weekdaySampleDays[weekday][1] == 1)
+            #expect(p.weekdayHourly[weekday][1] > 0)
+            #expect(p.hourly[1] > 0)
+            #expect(p.intensity[1] == 5)
+            #expect(p.weekdaySampleDays.flatMap { $0 }.reduce(0, +) == 1)
+        }
+    }
+
+    @Test("Saat dilimi değişen aralık yanlış saate yazılmaz")
+    func offsetTransitionIsUnknown() {
+        let p = UsageProfile.build(from: [sample(0, 0), sample(30, 10)],
+                                   utcOffsets: [10800, 7200], calendar: calendar)
+        #expect(p == .empty)
+    }
+}

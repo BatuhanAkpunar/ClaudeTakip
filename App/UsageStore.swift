@@ -281,6 +281,7 @@ final class UsageStore {
                     ? await client.balance(organizationID: org)
                     : nil
                 guard let self, self.isCurrent(generation) else { return }
+                if userInitiated { self.archive.invalidateProfile() }
                 self.applyServerSuccess(usage: usage, balance: balance, org: org, fetchedWith: session)
             } catch ClaudeWebClient.ClientError.sessionExpired {
                 guard let self, self.isCurrent(generation) else { return }
@@ -442,6 +443,7 @@ final class UsageStore {
         let generation = refreshAllGeneration
         isRefreshing = true
         account = accountReader.read()
+        archive.invalidateProfile()
         refreshQuota()
         refreshActivity(force: true)
         refreshStatus()
@@ -477,10 +479,8 @@ final class UsageStore {
             // budandığında arşiv daha geriye gidiyor, dolayısıyla haftalık
             // eğri ve sıfırlanma zinciri dosya kısalsa bile eksilmiyor.
             let samples = archive.merge(fresh: fresh)
-            // Pencere türetmesi ile TAHMİN beslemesi ayrı dilim ister.
-            // Uzun dilim yalnızca kullanım profili (En Aktif Saatler) için.
-            // Tahmin geçmişe bakmıyor: pace ve dolma anı pencere başından
-            // bu yana ortalama hızdan geliyor.
+            // 60 günlük profil aktivite grafiklerini ve haftalık tahminin
+            // gün içi dağılımını birlikte besler.
             profile = archive.profile(now: now)
 
             fiveHour = derivedWindow(.fiveHour, samples: samples, now: now)
@@ -605,6 +605,7 @@ final class UsageStore {
         }
 
         let samples = archive.recent(now: now)
+        profile = archive.profile(now: now)
         fiveHour = serverOnlyWindow(.fiveHour, server: serverUsage, samples: samples, now: now)
         weekly = serverOnlyWindow(.sevenDay, server: serverUsage, samples: samples, now: now)
         latestExtraUsage = serverUsage.wallet?.roundedUtilization
@@ -620,7 +621,8 @@ final class UsageStore {
         return deriver.derive(kind, from: samples, now: now).map { state in
             WindowPresentation.make(
                 state: state,
-                projection: projector.project(state.corrected(by: server), now: now),
+                projection: projector.project(state.corrected(by: server), now: now, profile: profile,
+                                              blockedUntil: weeklyBlock(for: kind)),
                 samples: samples,
                 now: now,
                 server: server
@@ -635,12 +637,19 @@ final class UsageStore {
             let state = WindowState.fromServer(kind: kind, utilization: window.utilization, resetsAt: resetsAt)
             return WindowPresentation.make(
                 state: state,
-                projection: projector.project(state, now: now),
+                projection: projector.project(state, now: now, profile: profile,
+                                              blockedUntil: weeklyBlock(for: kind)),
                 samples: samples,
                 now: now,
                 server: window
             )
         }
+    }
+
+    /// Önce fiveHour kurulur; haftalık tahmin bilinen limit beklemesini kullanır.
+    private func weeklyBlock(for kind: WindowKind) -> Date? {
+        guard kind == .sevenDay, fiveHour?.isFull == true else { return nil }
+        return fiveHour?.resetAt
     }
 
     /// Sunucu ekrandaki sayıların kaynağıysa, tazelik son sunucu okumasının yaşı.

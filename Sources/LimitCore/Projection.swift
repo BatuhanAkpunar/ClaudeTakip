@@ -11,25 +11,13 @@ public struct ProjectionPoint: Sendable, Equatable {
     }
 }
 
-/// Bir pencerenin mevcut hızı ve bu hızın nereye gittiği.
-///
-/// TEK KURAL, iki pencerede de (kullanıcının formülü):
-///
-///     ideal kullanım   = geçen süre ÷ pencere süresi × %100
-///     pace             = gerçek kullanım ÷ ideal kullanım
-///     tahmini toplam   = geçen süre × (100 ÷ gerçek kullanım)
-///
-/// Örnek: 7 günlük pencerede 48. saatte ideal %28,57; gerçek %40 ise pace
-/// 40 ÷ 28,57 = 1,40× ve bu hızla kota 48 × 100 ÷ 40 = 120. saatte biter.
-///
-/// Pace ile dolma anı aynı ortalama hızdan geliyor, dolayısıyla pace ≥ 1 ile
-/// "sıfırlanmadan dolacak" her zaman birlikte doğru. Buraya ayrı bir davranış
-/// eğrisi (ör. geçmiş haftaların ritmi) EKLEME: formülden sapar ve pace ile
-/// tahmini birbirine düşürür.
+/// Pencere sonundaki tüketim ve %100'e ulaşma tahmini.
+/// 5 saatlikte geçen sürenin ortalaması; haftalıkta yeterli geçmiş varsa
+/// saatlik tüketim deseni. Pace her iki modelde de tahmini toplam / 100.
 public struct Projection: Sendable, Equatable {
-    /// Pencere başından bu yana ortalama tüketim hızı, yüzde/saat.
+    /// Tahminin takvim saati başına tüketimi (haftalıkta kalan bölümün ortalaması).
     public let ratePerHour: Double
-    /// Arayüzdeki "1,40×": gerçek kullanım ÷ ideal kullanım.
+    /// Arayüzdeki "1,40×": pencere sonunda öngörülen kullanım ÷ 100.
     ///
     /// Hız ölçülemiyorsa (pencere çok genç) ya da pencere zaten dolmuşsa nil:
     /// arayüz o durumda hiçbir şey ya da "Doldu" yazıyor.
@@ -44,16 +32,21 @@ public struct Projection: Sendable, Equatable {
     public let fillAt: Date?
     /// Dolma anı pencerenin sıfırlanmasından önce mi.
     public let willOverrun: Bool
-    /// Gelecek için öngörülen eğri: ŞİMDİDEN pencere sonuna kadar düz çizgi.
+    /// Gelecek için öngörülen eğri: şimdiden pencere sonuna kadar.
     /// Grafikteki kesikli çizgi bunu çiziyor.
     public let forecast: [ProjectionPoint]
+    public var usesActivityPattern: Bool = false
 }
 
 public struct Projector: Sendable {
     public init() {}
 
-    public func project(_ state: WindowState, now: Date = Date()) -> Projection? {
-        guard !state.isIdle, let resetAt = state.resetAt, let windowStart = state.windowStart else { return nil }
+    public func project(
+        _ state: WindowState, now: Date = Date(), profile: UsageProfile? = nil,
+        blockedUntil: Date? = nil, calendar: Calendar = .current
+    ) -> Projection? {
+        guard !state.isIdle, let resetAt = state.resetAt, let windowStart = state.windowStart,
+              windowStart <= now, now < resetAt else { return nil }
 
         let current = Double(state.utilization)
         let rate = averageRate(kind: state.kind, utilization: current, windowStart: windowStart, now: now)
@@ -81,7 +74,12 @@ public struct Projector: Sendable {
             )
         }
 
-        // Kullanıcının formülü, doğrudan.
+        if state.kind == .sevenDay {
+            return weeklyProjection(state, now: now, profile: profile,
+                                    blockedUntil: blockedUntil, calendar: calendar)
+        }
+
+        // 5 saatlik pencere: geçen sürenin ortalaması.
         let idealUsage = elapsed / duration * 100
         let pace = current / idealUsage
         let projected = current + rate * hoursLeft          // = pace × 100
@@ -100,19 +98,10 @@ public struct Projector: Sendable {
         )
     }
 
-    /// Bir hızın türetilebilmesi için gereken en kısa geçen süre.
-    ///
-    /// Formülün tek gerçek kırılma noktası paydanın sıfıra yaklaşması:
-    /// pencerenin ilk dakikalarında `geçen` küçücükken oran uçuyor. Eşik
-    /// bunu kapatacak kadar, tahmini gereksiz yere geciktirmeyecek kadar
-    /// küçük: 5 saatlik pencerede 15 dakika, haftalıkta 1,7 saat.
-    ///
-    /// Pencerenin yirmide biri gibi geniş bir eşik (haftalıkta 8,4 saat)
-    /// haftanın ilk gününde tahmini tümüyle susturur. "%668" gibi saçma
-    /// sonuçların sebebi eşik değil payda: geçen süre pencere başından
-    /// ölçüldüğü sürece bu dar eşik yeter.
+    /// Haftalıkta en az bir gündüz/gece döngüsü bekle. İlk birkaç saatlik
+    /// yoğun çalışmayı bütün haftaya yaymak aşırı erken aşım üretir.
     static func minimumRateSpan(for kind: WindowKind) -> TimeInterval {
-        max(15 * 60, kind.duration / 100)
+        kind == .sevenDay ? 24 * 3600 : 15 * 60
     }
 
     /// Pencere başından bu yana ortalama tüketim hızı, yüzde/saat.

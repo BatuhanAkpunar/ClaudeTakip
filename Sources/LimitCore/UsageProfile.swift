@@ -29,6 +29,11 @@ public struct UsageProfile: Sendable, Equatable {
     public let weekdayHourly: [[Double]]
     /// Hafta günü × saat gözlenen gün sayısı (7 × 24).
     public let weekdaySampleDays: [[Int]]
+    /// Tahmin için haftalık kota puanı / takvim günü. Aktiflik sıklığıyla
+    /// karıştırılmaz; büyüklük haftalık sayacın kendisinden gelir.
+    public let forecastActiveDays: Int
+    public let forecastHourly: [Double]
+    public let forecastWeekdayHourly: [[Double]]
 
     public init(
         hourly: [Double],
@@ -36,7 +41,10 @@ public struct UsageProfile: Sendable, Equatable {
         hourSampleDays: [Int],
         observedDays: Int,
         weekdayHourly: [[Double]]? = nil,
-        weekdaySampleDays: [[Int]]? = nil
+        weekdaySampleDays: [[Int]]? = nil,
+        forecastActiveDays: Int? = nil,
+        forecastHourly: [Double]? = nil,
+        forecastWeekdayHourly: [[Double]]? = nil
     ) {
         self.hourly = hourly
         self.intensity = intensity ?? Array(repeating: 0, count: 24)
@@ -44,6 +52,9 @@ public struct UsageProfile: Sendable, Equatable {
         self.observedDays = observedDays
         self.weekdayHourly = weekdayHourly ?? Self.emptyGrid(0.0)
         self.weekdaySampleDays = weekdaySampleDays ?? Self.emptyGrid(0)
+        self.forecastActiveDays = forecastActiveDays ?? observedDays
+        self.forecastHourly = forecastHourly ?? Array(repeating: 0, count: 24)
+        self.forecastWeekdayHourly = forecastWeekdayHourly ?? Array(repeating: self.forecastHourly, count: 7)
     }
 
     /// En aktif saat. Eşitlikte tüketimi büyük olan saat kazanır; o da
@@ -113,22 +124,36 @@ public struct UsageProfile: Sendable, Equatable {
         // sunucu okuması) farklı etiketle gelebiliyor; o yüzden fark çiftleri
         // atılmıyor, her seri kendi içinde okunup aşağıda birleştiriliyor.
         var previousByOrg: [String: Int] = [:]
+        var highWater: [String: (five: Int, seven: Int)] = [:]
         for index in samples.indices {
             let current = samples[index]
             defer { previousByOrg[current.org] = index }
-            guard let previousIndex = previousByOrg[current.org] else { continue }
+            guard let previousIndex = previousByOrg[current.org] else {
+                highWater[current.org] = (current.fiveHour, current.sevenDay)
+                continue
+            }
             let previous = samples[previousIndex]
-
             let gap = current.date.timeIntervalSince(previous.date)
-            guard gap > 0, gap <= maxGap else { continue }
-
+            // Saat farkı değişen aralığın hangi yerel saate ait olduğu belirsiz.
+            guard gap > 0, gap <= maxGap, offset(previousIndex) == offset(index) else {
+                highWater[current.org] = (current.fiveHour, current.sevenDay)
+                continue
+            }
+            let peak = highWater[current.org] ?? (previous.fiveHour, previous.sevenDay)
+            let fiveReset = ResetRule.didReset(previous: peak.five, current: current.fiveHour,
+                                               gap: gap, duration: WindowKind.fiveHour.duration)
+            let sevenReset = ResetRule.didReset(previous: peak.seven, current: current.sevenDay,
+                                                gap: gap, duration: WindowKind.sevenDay.duration)
+            let fiveDelta = fiveReset ? 0 : max(0, current.fiveHour - peak.five)
+            let sevenDelta = sevenReset ? 0 : max(0, current.sevenDay - peak.seven)
+            highWater[current.org] = (fiveReset ? current.fiveHour : max(peak.five, current.fiveHour),
+                                     sevenReset ? current.sevenDay : max(peak.seven, current.sevenDay))
+            // 40→39→40 gibi gecikmiş okumalar tekrar tekrar tüketim üretmesin.
+            // Sıfırlanmanın iki yanındaki fark bilinemez; hareketsizlik de değildir.
+            guard !fiveReset || sevenDelta > 0 else { continue }
             collector.add(
-                from: previous.date,
-                to: current.date,
-                offset: offset(previousIndex),
-                // Negatif fark sıfırlanma, sıfır fark duruş.
-                delta: Double(max(0, current.fiveHour - previous.fiveHour)),
-                org: current.org
+                from: previous.date, to: current.date, offset: offset(previousIndex),
+                delta: Double(fiveDelta), weeklyDelta: Double(sevenDelta), org: current.org
             )
         }
         return collector.profile()
@@ -159,12 +184,14 @@ private struct Collector {
     private var consumption: [String: [Slot: Double]] = [:]
     /// Tüketim olan (gün, saat) çiftleri.
     private var active: Set<Slot> = []
+    private var weeklyConsumption: [String: [Slot: Double]] = [:]
+    private var intensityActive: Set<Slot> = []
 
     init(reference: Date) {
         self.reference = reference
     }
 
-    mutating func add(from start: Date, to end: Date, offset: Int, delta: Double, org: String) {
+    mutating func add(from start: Date, to end: Date, offset: Int, delta: Double, weeklyDelta: Double, org: String) {
         let shift = TimeInterval(offset)
 
         // Kapsam: aralığın değdiği HER yerel saat gözlenmiştir; tüketim
@@ -181,10 +208,14 @@ private struct Collector {
         // Eskiden bitiş örneğinin saatine yazılıyordu ve 13:55-14:00
         // arasındaki iş 14:00'e gidiyordu. Saat sınırında orantılı bölmek de
         // komşu saate kırıntı bırakıp onu "aktif" sayardı; pay bir evet/hayır.
-        guard delta > 0 else { return }
+        guard delta > 0 || weeklyDelta > 0 else { return }
         let middle = register(start.addingTimeInterval(end.timeIntervalSince(start) / 2), shift: shift)
         active.insert(middle)
-        consumption[org, default: [:]][middle, default: 0] += delta
+        if delta > 0 {
+            intensityActive.insert(middle)
+            consumption[org, default: [:]][middle, default: 0] += delta
+        }
+        weeklyConsumption[org, default: [:]][middle, default: 0] += weeklyDelta
     }
 
     /// Anın yerel (gün, saat) anahtarı; günü ilk kez görüyorsa ağırlığını
@@ -215,6 +246,34 @@ private struct Collector {
             for (slot, value) in perOrg { merged[slot] = max(merged[slot] ?? 0, value) }
         }
 
+        var weeklyMerged: [Slot: Double] = [:]
+        for perOrg in weeklyConsumption.values {
+            for (slot, value) in perOrg { weeklyMerged[slot] = max(weeklyMerged[slot] ?? 0, value) }
+        }
+        var weeklySpent = [Double](repeating: 0, count: 24)
+        var weekdaySpent = UsageProfile.emptyGrid(0.0)
+        var weekdayWeight = [Double](repeating: 0, count: 7)
+        var weekdayDays = [Int](repeating: 0, count: 7)
+        for (day, weight) in dayWeight {
+            let weekday = dayWeekday[day] ?? 0
+            weekdayWeight[weekday] += weight
+            weekdayDays[weekday] += 1
+        }
+        for (slot, value) in weeklyMerged {
+            let spent = value * (dayWeight[slot.day] ?? 0)
+            weeklySpent[slot.hour] += spent
+            weekdaySpent[dayWeekday[slot.day] ?? 0][slot.hour] += spent
+        }
+        let totalWeight = dayWeight.values.reduce(0, +)
+        let forecastHourly = weeklySpent.map { $0 / max(totalWeight, 1) }
+        let forecastGrid = (0..<7).map { day in
+            // Haftanın belli bir gününden en az üç gözlem yoksa genel ritim.
+            weekdayDays[day] >= 3
+                ? weekdaySpent[day].map { $0 / max(weekdayWeight[day], 1) }
+                : forecastHourly
+        }
+
+        var intensityWeight = [Double](repeating: 0, count: 24)
         var coveredWeight = [Double](repeating: 0, count: 24)
         var activeWeight = [Double](repeating: 0, count: 24)
         var spentWeighted = [Double](repeating: 0, count: 24)
@@ -237,14 +296,17 @@ private struct Collector {
             let weight = dayWeight[slot.day] ?? 0
             activeWeight[slot.hour] += weight
             cellActive[dayWeekday[slot.day] ?? 0][slot.hour] += weight
-            spentWeighted[slot.hour] += weight * (merged[slot] ?? 0)
+            if intensityActive.contains(slot) {
+                intensityWeight[slot.hour] += weight
+                spentWeighted[slot.hour] += weight * (merged[slot] ?? 0)
+            }
         }
 
         let hourly = (0..<24).map {
             activeWeight[$0] / max(coveredWeight[$0], UsageProfile.minimumHourDays)
         }
         let intensity = (0..<24).map {
-            activeWeight[$0] > 0 ? spentWeighted[$0] / activeWeight[$0] : 0
+            intensityWeight[$0] > 0 ? spentWeighted[$0] / intensityWeight[$0] : 0
         }
         let grid = (0..<7).map { weekday in
             (0..<24).map { hour in
@@ -258,7 +320,9 @@ private struct Collector {
             hourSampleDays: coveredDays,
             observedDays: Set(covered.map(\.day)).count,
             weekdayHourly: grid,
-            weekdaySampleDays: cellDays
+            weekdaySampleDays: cellDays,
+            forecastActiveDays: Set(weeklyMerged.filter { $0.value > 0 }.map { $0.key.day }).count,
+            forecastHourly: forecastHourly, forecastWeekdayHourly: forecastGrid
         )
     }
 }

@@ -142,10 +142,14 @@ public struct WindowPresentation: Sendable, Equatable {
             note = ProjectionNote(
                 title: L.t("Tahmini Aşım", "Projected Overrun"),
                 value: state.kind.instantLabel(fillAt),
-                basis: L.t(
-                    "Şu ana kadarki ortalama hızla devam edersen: geçen süre × 100 ÷ kullanım.",
-                    "If you keep your average pace so far: elapsed time × 100 ÷ usage."
-                )
+                basis: state.kind == .sevenDay
+                    ? (projection.usesActivityPattern
+                       ? L.t("Bu haftanın tüketimi ve geçmiş saatlik kullanım düzenine göre; mevcut 5 saatlik limit beklemesi hesaba katılır.",
+                             "Based on this week's usage and your historical hourly pattern, including the current 5-hour limit wait.")
+                       : L.t("En az 24 saatlik takvim ortalamasına göre; mevcut 5 saatlik limit beklemesi hesaba katılır.",
+                             "Based on at least 24 hours of elapsed-time average, including the current 5-hour limit wait."))
+                    : L.t("Şu ana kadarki ortalama hızla devam edersen: geçen süre × 100 ÷ kullanım.",
+                          "If you keep your average pace so far: elapsed time × 100 ÷ usage.")
             )
         }
 

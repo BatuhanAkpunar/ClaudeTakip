@@ -32,13 +32,6 @@ struct ActiveHoursPage: View {
                 VStack(alignment: .leading, spacing: 6) {
                     CardHeader(title: L.t("Saat Saat", "Hour by Hour"))
                     HourTable(profile: profile)
-                    FootnoteText(
-                        text: L.t(
-                            "Aktif: o saatin gözlendiği günlerin kaçında kota harcandı. Son günler daha ağır sayılır. Tüketim: aktif olunan günlerde ortalama 5 saatlik kota puanı.",
-                            "Active: share of observed days with quota spent in that hour. Recent days count more. Usage: average 5-hour quota points on active days."
-                        ),
-                        ink: Palette.secondaryText
-                    )
                 }
             }
         }
@@ -153,7 +146,7 @@ private struct HourTable: View {
     var body: some View {
         let peakHour = profile.peakHour
         VStack(spacing: 0) {
-            row(hour: L.t("Saat", "Hour"), active: L.t("Aktif", "Active"),
+            row(hour: L.t("Saat", "Hour"), active: L.t("Aktiflik", "Activity"),
                 usage: L.t("Tüketim", "Usage"), days: L.t("Gözlem", "Observed"),
                 font: Typo.badge, ink: Palette.secondaryText, highlighted: false)
                 .padding(.bottom, 3)

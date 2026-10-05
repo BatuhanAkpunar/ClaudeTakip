@@ -30,8 +30,8 @@ struct HourStream: View {
         }
         let share = Int((profile.hourly[peakHour] * 100).rounded())
         let days = profile.observedDays
-        return L.t("En aktif saat \(peakLabel) · günlerin %\(share)'inde · \(days) günlük profil",
-                   "Most active hour \(peakLabel) · \(share)% of days · profile from \(days) days")
+        return L.t("En aktif saat \(peakLabel) · aktiflik %\(share) · \(days) günlük profil",
+                   "Most active hour \(peakLabel) · \(share)% activity · profile from \(days) days")
     }
 
     // Dikey bütçe puntodan TÜRETİLİYOR. Elle yazılan sabitler punto değişince
